@@ -52,9 +52,6 @@ def process_excel(file_bytes, capacity):
     df = df.dropna(subset=['_dt'])
     df = df.sort_values('_dt')
 
-    # Convert Argentina ERP time → Chile time (Argentina UTC-3, Chile UTC-4 → -1 h)
-    df['_dt'] = df['_dt'] - pd.Timedelta(hours=1)
-
     # Normalize action: +1 check-in, -1 check-out, 0 ignorar (bloqueado, denegado, etc.)
     CHECKIN_WORDS  = ['liberado', 'entrada', 'acesso', 'access']
     CHECKOUT_WORDS = ['saída', 'saida', 'salida', 'exit', 'egreso']
