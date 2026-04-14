@@ -5,7 +5,7 @@ from io import BytesIO
 
 app = Flask(__name__)
 
-CAPACITY_DEFAULT = 100
+CAPACITY_DEFAULT = 85
 
 PRICE_TIERS = [
     {"label": "No hay data", "min": None, "max": None, "price": None},
@@ -42,6 +42,11 @@ def process_excel(file_bytes, capacity):
 
     if not date_col or not action_col:
         return None, "No se encontraron columnas de fecha/hora o acción en el archivo."
+
+    # Filter Interlaken only (when molinete/torniquete column exists)
+    molinete_col = next((c for c in df.columns if 'molinete' in c.lower() or 'torniquete' in c.lower()), None)
+    if molinete_col:
+        df = df[df[molinete_col].astype(str).str.contains('Interlaken', case=False, na=False)].copy()
 
     df['_dt'] = pd.to_datetime(df[date_col], dayfirst=True, errors='coerce')
     df = df.dropna(subset=['_dt'])
