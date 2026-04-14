@@ -47,11 +47,26 @@ def process_excel(file_bytes, capacity):
     df = df.dropna(subset=['_dt'])
     df = df.sort_values('_dt')
 
-    # Normalize action: check-in vs check-out
-    df['_checkin'] = df[action_col].str.lower().apply(
-        lambda x: 1 if any(w in x for w in ['liberado', 'entrada', 'acesso', 'access']) else -1
-    )
+    # Normalize action: +1 check-in, -1 check-out, 0 ignorar (bloqueado, denegado, etc.)
+    CHECKIN_WORDS  = ['liberado', 'entrada', 'acesso', 'access']
+    CHECKOUT_WORDS = ['saída', 'saida', 'salida', 'exit', 'egreso']
+    IGNORE_WORDS   = ['bloqueado', 'bloqueada', 'denegado', 'denied', 'negado']
 
+    def classify_action(x):
+        x = str(x).lower()
+        if any(w in x for w in IGNORE_WORDS):
+            return 0
+        if any(w in x for w in CHECKIN_WORDS):
+            return 1
+        if any(w in x for w in CHECKOUT_WORDS):
+            return -1
+        return 0   # desconocido → ignorar
+
+    df['_checkin'] = df[action_col].apply(classify_action)
+    ignored = int((df['_checkin'] == 0).sum())  # bloqueados/denegados
+
+    # Filtrar solo eventos que cuentan (ignorar 0)
+    df = df[df['_checkin'] != 0].copy()
     df['_running'] = df['_checkin'].cumsum().clip(lower=0)
 
     # Build hourly snapshots: occupancy AT start of each hour = running count at that moment
@@ -68,9 +83,9 @@ def process_excel(file_bytes, capacity):
         pct = round((count / capacity) * 100, 1)
         tier = get_tier(pct)
 
-        # Events in this hour
+        # Eventos en esta hora (solo los que cuentan)
         in_hour = df[df['_dt'].dt.hour == h]
-        checkins = int((in_hour['_checkin'] == 1).sum())
+        checkins  = int((in_hour['_checkin'] == 1).sum())
         checkouts = int((in_hour['_checkin'] == -1).sum())
 
         hourly.append({
@@ -90,7 +105,10 @@ def process_excel(file_bytes, capacity):
         "day_of_week": int(day_of_week),
         "capacity": capacity,
         "total_events": len(df),
-        "sede": df["Sede de origen"].iloc[0] if "Sede de origen" in df.columns else "Sede",
+        "ignored_events": ignored,
+        "sede": (df["Sede de origen"].dropna().iloc[0]
+                 if "Sede de origen" in df.columns and not df["Sede de origen"].dropna().empty
+                 else "NEO"),
         "hourly": hourly,
     }, None
 
