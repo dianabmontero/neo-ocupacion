@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NEO — Ocupación Dinámica</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Wix+Madefor+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      /* NEO Color Palette */
+      --bg:          #111317;
+      --surface:     #16191f;
+      --surface2:    #1c2035;
+      --surface3:    #222843;
+      --border:      #252b42;
+      --border-light:#2e3556;
+
+      /* Primary Blue */
+      --blue-900:    #00146e;
+      --blue-800:    #001988;
+      --blue-700:    #0021af;
+      --blue-600:    #002ae1;
+      --blue-500:    #002ef7;   /* NEO brand */
+      --blue-400:    #3358f9;
+      --blue-300:    #5473fa;
+      --blue-200:    #8a9ffb;
+      --blue-100:    #b0befd;
+      --blue-50:     #e6eafe;
+
+      /* Neutral */
+      --gray-900:    #111317;
+      --gray-700:    #5d5f63;
+      --gray-600:    #75777d;
+      --gray-500:    #8d8f96;
+      --gray-400:    #a5a7b0;
+      --gray-300:    #bdbfc9;
+      --gray-200:    #d4d6e2;
+      --gray-100:    #f0f2fa;
+      --white:       #ffffff;
+
+      /* Semantic */
+      --text:        #ffffff;
+      --text-secondary: #a5a7b0;
+      --text-muted:  #75777d;
+
+      /* Tier colors */
+      --tier-baja:        #22c55e;
+      --tier-medio-bajo:  #86efac;
+      --tier-media:       #facc15;
+      --tier-media-alta:  #f97316;
+      --tier-alta:        #ef4444;
+      --tier-maxima:      #7f1d1d;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Wix Madefor Display', -apple-system, sans-serif;
+      min-height: 100vh;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* ── Top nav ── */
+    .topnav {
+      background: var(--blue-500);
+      padding: 0 32px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .topnav-logo {
+      font-family: 'Sora', sans-serif;
+      font-weight: 700;
+      font-size: 20px;
+      color: #fff;
+      letter-spacing: -0.5px;
+    }
+    .topnav-divider {
+      width: 1px; height: 20px;
+      background: rgba(255,255,255,.25);
+    }
+    .topnav-sub {
+      font-family: 'Wix Madefor Display', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      color: rgba(255,255,255,.75);
+    }
+
+    /* ── Page layout ── */
+    .page {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 32px 24px 64px;
+    }
+
+    /* ── Page header ── */
+    .page-header {
+      margin-bottom: 32px;
+    }
+    .page-title {
+      font-family: 'Sora', sans-serif;
+      font-weight: 700;
+      font-size: 24px;
+      line-height: 34px;
+      color: var(--white);
+      margin-bottom: 4px;
+    }
+    .page-desc {
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+    }
+    .card + .card { margin-top: 16px; }
+
+    .card-label {
+      font-family: 'Sora', sans-serif;
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+
+    /* ── Upload form ── */
+    .upload-grid {
+      display: grid;
+      grid-template-columns: 1fr 160px auto;
+      gap: 12px;
+      align-items: end;
+    }
+    @media (max-width: 640px) {
+      .upload-grid { grid-template-columns: 1fr; }
+    }
+
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      font-family: 'Sora', sans-serif;
+    }
+
+    input[type="file"],
+    input[type="number"] {
+      background: var(--surface2);
+      border: 1px solid var(--border-light);
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-family: 'Wix Madefor Display', sans-serif;
+      font-size: 13px;
+      width: 100%;
+      outline: none;
+      transition: border-color .15s;
+    }
+    input[type="file"]:focus,
+    input[type="number"]:focus { border-color: var(--blue-400); }
+    input[type="number"] { -moz-appearance: textfield; }
+    input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+    /* ── Button ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      background: var(--blue-500);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 11px 24px;
+      font-family: 'Sora', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background .15s, transform .1s;
+      height: 42px;
+    }
+    .btn:hover { background: var(--blue-400); }
+    .btn:active { transform: scale(.98); }
+    .btn:disabled { background: var(--surface3); color: var(--text-muted); cursor: default; transform: none; }
+
+    .btn-sm {
+      height: 32px;
+      padding: 0 14px;
+      font-size: 12px;
+      border-radius: 8px;
+      background: var(--surface3);
+      color: var(--text-secondary);
+    }
+    .btn-sm:hover { background: var(--border-light); color: var(--text); }
+
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid var(--border-light);
+      color: var(--text-secondary);
+    }
+    .btn-ghost:hover { background: var(--surface2); color: var(--text); }
+
+    /* ── Error ── */
+    .error-msg {
+      display: none;
+      margin-top: 12px;
+      padding: 10px 14px;
+      background: rgba(239,68,68,.12);
+      border: 1px solid rgba(239,68,68,.25);
+      border-radius: 8px;
+      font-size: 13px;
+      color: #fca5a5;
+    }
+
+    /* ── Results ── */
+    #results { display: none; margin-top: 24px; }
+
+    /* ── Meta pills ── */
+    .meta-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+    }
+    .meta-pill {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 16px;
+      min-width: 120px;
+    }
+    .meta-pill-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+      font-family: 'Sora', sans-serif;
+    }
+    .meta-pill-value {
+      font-family: 'Sora', sans-serif;
+      font-weight: 700;
+      font-size: 16px;
+      color: var(--white);
+    }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 4px;
+      width: fit-content;
+    }
+    .tab-btn {
+      background: transparent;
+      border: none;
+      border-radius: 8px;
+      color: var(--text-muted);
+      padding: 8px 18px;
+      font-family: 'Sora', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .15s;
+      white-space: nowrap;
+    }
+    .tab-btn.active {
+      background: var(--blue-500);
+      color: #fff;
+    }
+    .tab-btn:not(.active):hover { color: var(--text-secondary); background: var(--surface2); }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Section title ── */
+    .section-title {
+      font-family: 'Sora', sans-serif;
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--white);
+      margin-bottom: 14px;
+    }
+
+    /* ── Formula box ── */
+    .formula-card {
+      background: var(--surface2);
+      border: 1px solid var(--border-light);
+      border-left: 3px solid var(--blue-500);
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      font-size: 13px;
+      line-height: 1.8;
+      color: var(--text-secondary);
+    }
+    .formula-card strong { color: var(--white); }
+    .formula-pill {
+      display: inline-block;
+      background: rgba(0,46,247,.18);
+      color: var(--blue-300);
+      border-radius: 5px;
+      padding: 1px 7px;
+      font-size: 12px;
+      font-family: 'Sora', sans-serif;
+      font-weight: 600;
+    }
+
+    /* ── Info hint ── */
+    .hint-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+
+    /* ── Legend ── */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    .legend-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+    .legend-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* ── Chart card ── */
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 16px;
+    }
+
+    /* ── Table ── */
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      overflow-x: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      min-width: 860px;
+    }
+    thead tr {
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      padding: 12px 14px;
+      text-align: left;
+      font-family: 'Sora', sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(0,46,247,.05); }
+
+    .td-hour {
+      font-family: 'Sora', sans-serif;
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--white);
+    }
+    .td-pct {
+      font-family: 'Sora', sans-serif;
+      font-weight: 600;
+      color: var(--white);
+    }
+    .td-final {
+      font-family: 'Sora', sans-serif;
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--blue-300);
+    }
+    .td-unavailable { color: #f87171; font-size: 12px; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 20px;
+      padding: 3px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      font-family: 'Sora', sans-serif;
+      white-space: nowrap;
+    }
+    .badge-baja       { background: rgba(34,197,94,.15);   color: #4ade80; }
+    .badge-medio-bajo { background: rgba(134,239,172,.12); color: #86efac; }
+    .badge-media      { background: rgba(250,204,21,.15);  color: #fde047; }
+    .badge-media-alta { background: rgba(249,115,22,.18);  color: #fb923c; }
+    .badge-alta       { background: rgba(239,68,68,.18);   color: #f87171; }
+    .badge-maxima     { background: rgba(127,29,29,.35);   color: #fca5a5; }
+    .badge-nodata     { background: rgba(165,167,176,.12); color: var(--text-muted); }
+
+    /* ── Beta badge ── */
+    .beta-1    { background: rgba(0,46,247,.18); color: var(--blue-300); }
+    .beta-06   { background: rgba(250,204,21,.15); color: #fde047; }
+
+    /* ── Exp input ── */
+    .exp-input {
+      background: var(--surface2);
+      border: 1px solid var(--border-light);
+      border-radius: 8px;
+      padding: 5px 10px;
+      color: var(--white);
+      font-family: 'Wix Madefor Display', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      width: 68px;
+      outline: none;
+      text-align: center;
+      -moz-appearance: textfield;
+      transition: border-color .15s;
+    }
+    .exp-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+    .exp-input:focus { border-color: var(--blue-400); }
+
+    /* ── Divider ── */
+    .divider { height: 1px; background: var(--border); margin: 24px 0; }
+
+    /* ── Asistencia table ── */
+    #asistTableBody tr:nth-child(odd) td { background: var(--surface); }
+    #asistTableBody tr:nth-child(even) td { background: var(--surface2); }
+    #asistTableBody tr:hover td { background: rgba(0,46,247,.08) !important; }
+
+    .asist-bar-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .asist-bar {
+      height: 6px;
+      border-radius: 99px;
+      background: #0d9c73;
+      min-width: 4px;
+      transition: width .3s;
+    }
+
+    .summary-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .summary-card-label {
+      font-family: 'Sora', sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .summary-card-value {
+      font-family: 'Sora', sans-serif;
+      font-weight: 700;
+      font-size: 22px;
+      color: var(--white);
+    }
+    .summary-card-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* ── Loading spinner ── */
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,.2);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+  <!-- Top nav -->
+  <nav class="topnav">
+    <span class="topnav-logo">NEO</span>
+    <div class="topnav-divider"></div>
+    <span class="topnav-sub">Panel de Ocupación</span>
+  </nav>
+
+  <div class="page">
+
+    <!-- Page header -->
+    <div class="page-header">
+      <h1 class="page-title">Ocupación Dinámica</h1>
+      <p class="page-desc">Analizá el flujo de tu sede y calculá el precio final según la lógica de pricing dinámico</p>
+    </div>
+
+    <!-- Upload card -->
+    <div class="card">
+      <div class="card-label">Cargar reporte</div>
+      <div class="upload-grid">
+        <div class="field">
+          <span class="field-label">Archivo de accesos (.xlsx)</span>
+          <input type="file" id="fileInput" accept=".xlsx,.xls" />
+        </div>
+        <div class="field">
+          <span class="field-label">Capacidad</span>
+          <input type="number" id="capacityInput" value="100" min="1" max="9999" placeholder="100" />
+        </div>
+        <button class="btn" id="analyzeBtn" onclick="analyze()">
+          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+          Analizar
+        </button>
+      </div>
+      <div class="error-msg" id="errorMsg"></div>
+    </div>
+
+    <!-- Results -->
+    <div id="results">
+
+      <!-- Meta pills -->
+      <div class="meta-row" id="metaBar"></div>
+
+      <!-- Tabs -->
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('precios')">💰 Precios y Ponderación</button>
+        <button class="tab-btn" onclick="switchTab('asistencia')">🕐 Asistencia por hora</button>
+        <button class="tab-btn" onclick="switchTab('flujo')">📊 Flujo de personas</button>
+      </div>
+
+      <!-- Tab: Precios -->
+      <div id="tab-precios" class="tab-panel active">
+
+        <div class="formula-card">
+          <strong>Lógica de Precio Final (β ponderación)</strong><br>
+          Real <strong>≥</strong> Esperada → <span class="formula-pill">β = 1</span> → Precio Final = Precio Real &nbsp;·&nbsp;
+          Real <strong>&lt;</strong> Esperada → <span class="formula-pill">β = 0.6</span> → 0.6 × Real + 0.4 × Esperado
+        </div>
+
+        <div class="hint-row">
+          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="flex-shrink:0;color:var(--blue-300)"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>
+          Editá la columna <strong style="color:var(--white)">&thinsp;Ocup. Esperada %&thinsp;</strong> para ajustar la ponderación por hora. Pre-cargado con la tabla Chile del Notion.
+          <button class="btn btn-sm" style="margin-left:auto" onclick="resetExpected()">Restaurar defaults</button>
+        </div>
+
+        <div class="legend" id="legendEl"></div>
+
+        <div class="chart-card">
+          <div class="section-title">Precio Final por hora</div>
+          <canvas id="priceChart" height="75"></canvas>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Hora</th>
+                <th>Personas</th>
+                <th>% Real</th>
+                <th>Nivel Real</th>
+                <th>Precio Real</th>
+                <th>Ocup. Esperada %</th>
+                <th>Nivel Esp.</th>
+                <th>Precio Esp.</th>
+                <th>β</th>
+                <th>💰 Precio Final</th>
+                <th>Entradas</th>
+                <th>Salidas</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab: Asistencia por hora -->
+      <div id="tab-asistencia" class="tab-panel">
+
+        <div style="display:grid; grid-template-columns:1fr 340px; gap:16px; align-items:start;">
+
+          <!-- Line chart -->
+          <div class="chart-card" style="margin-bottom:0">
+            <div class="section-title">Entradas por hora</div>
+            <canvas id="asistChart" height="110"></canvas>
+          </div>
+
+          <!-- Table -->
+          <div class="table-wrap" style="border-radius:16px; overflow:hidden;">
+            <table style="min-width:unset; width:100%;">
+              <thead>
+                <tr>
+                  <th style="width:55%">Día/Horario</th>
+                  <th>Cantidad</th>
+                  <th>% del total</th>
+                </tr>
+              </thead>
+              <tbody id="asistTableBody"></tbody>
+              <tfoot>
+                <tr style="background:var(--surface2);">
+                  <td style="font-family:'Sora',sans-serif;font-weight:700;font-size:13px;color:var(--white);padding:12px 14px;">Total</td>
+                  <td id="asistTotal" style="font-family:'Sora',sans-serif;font-weight:700;color:var(--blue-300);padding:12px 14px;"></td>
+                  <td style="padding:12px 14px;color:var(--text-muted);">100%</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+
+        <!-- Summary cards -->
+        <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:16px;" id="asistSummary"></div>
+
+      </div>
+
+      <!-- Tab: Flujo -->
+      <div id="tab-flujo" class="tab-panel">
+        <div class="chart-card">
+          <div class="section-title">Ocupación % por hora</div>
+          <canvas id="occChart" height="80"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="section-title">Entradas y Salidas por hora</div>
+          <canvas id="flowChart" height="70"></canvas>
+        </div>
+      </div>
+
+    </div><!-- /results -->
+  </div><!-- /page -->
+
+  <script>
+    // ── Design tokens ──────────────────────────────────────────────────────
+    const TIER_COLORS = {
+      'Baja':       '#22c55e',
+      'Medio bajo': '#86efac',
+      'Media':      '#facc15',
+      'Media alta': '#f97316',
+      'Alta':       '#ef4444',
+      'Máxima':     '#7f1d1d',
+      'No hay data':'#75777d',
+    };
+    const TIER_BADGE = {
+      'Baja':       'badge-baja',
+      'Medio bajo': 'badge-medio-bajo',
+      'Media':      'badge-media',
+      'Media alta': 'badge-media-alta',
+      'Alta':       'badge-alta',
+      'Máxima':     'badge-maxima',
+      'No hay data':'badge-nodata',
+    };
+
+    // Chile defaults (day 0=Lun … 6=Dom), midpoints per tier
+    const CHILE = {
+       6:[5,5,5,5,5,5,5],
+       7:[5,17,17,17,5,5,5],
+       8:[17,17,17,17,17,5,5],
+       9:[17,17,17,17,17,5,5],
+      10:[5,5,5,5,5,35,35],
+      11:[17,17,17,17,17,35,35],
+      12:[17,17,17,17,17,35,35],
+      13:[35,35,35,35,35,35,35],
+      14:[35,35,35,35,35,35,35],
+      15:[17,17,17,17,17,35,35],
+      16:[35,35,35,35,35,35,35],
+      17:[57,57,57,57,57,35,35],
+      18:[85,85,85,85,35,35,35],
+      19:[85,85,85,85,57,35,35],
+      20:[57,57,57,57,35,17,17],
+      21:[35,35,35,35,17,5,5],
+    };
+
+    function defExp(h, dow) { return (CHILE[h] || [])[dow] ?? 30; }
+
+    function getTier(pct) {
+      if (pct === null || pct === undefined || isNaN(pct)) return {label:'No hay data',price:null};
+      if (pct >= 100) return {label:'Máxima',    price:null};
+      if (pct > 70)   return {label:'Alta',       price:6000};
+      if (pct > 45)   return {label:'Media alta', price:5000};
+      if (pct > 25)   return {label:'Media',      price:3500};
+      if (pct > 10)   return {label:'Medio bajo', price:2500};
+      return               {label:'Baja',       price:1000};
+    }
+
+    function calcFinal(pr, pe, rp, ep) {
+      if (pr === null) return null;
+      if (pe === null) return pr;
+      const b = rp >= ep ? 1 : 0.6;
+      return Math.round(b * pr + (1 - b) * pe);
+    }
+
+    function fmtPrice(p) {
+      if (p === null) return '<span class="td-unavailable">Sin compras</span>';
+      return '$' + p.toLocaleString('es-CL');
+    }
+    function fmtPricePlain(p) {
+      return p === null ? '—' : '$' + p.toLocaleString('es-CL');
+    }
+
+    let chartData = null, dow = 0;
+    let chartPrice = null, chartOcc = null, chartFlow = null, chartAsist = null;
+
+    // ── Tabs ──────────────────────────────────────────────────────────────
+    const TAB_NAMES = ['precios','asistencia','flujo'];
+    function switchTab(name) {
+      document.querySelectorAll('.tab-btn').forEach((b,i)=>{
+        b.classList.toggle('active', TAB_NAMES[i] === name);
+      });
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      document.getElementById('tab-' + name).classList.add('active');
+    }
+
+    // ── Analyze ──────────────────────────────────────────────────────────
+    async function analyze() {
+      const file = document.getElementById('fileInput');
+      const cap  = document.getElementById('capacityInput').value;
+      const btn  = document.getElementById('analyzeBtn');
+      const err  = document.getElementById('errorMsg');
+      err.style.display = 'none';
+      if (!file.files.length) { showErr('Seleccioná un archivo primero.'); return; }
+      const fd = new FormData();
+      fd.append('file', file.files[0]);
+      fd.append('capacity', cap);
+      btn.disabled = true;
+      btn.innerHTML = '<div class="spinner"></div> Procesando…';
+      try {
+        const res  = await fetch('/upload', { method:'POST', body:fd });
+        const data = await res.json();
+        if (!res.ok || data.error) { showErr(data.error || 'Error al procesar'); return; }
+        chartData = data; dow = data.day_of_week || 0;
+        render(data);
+      } catch(e) { showErr('Error de red: ' + e.message); }
+      finally {
+        btn.disabled = false;
+        btn.innerHTML = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg> Analizar';
+      }
+    }
+
+    function showErr(msg) {
+      const el = document.getElementById('errorMsg');
+      el.textContent = msg; el.style.display = 'block';
+    }
+
+    // ── Render ────────────────────────────────────────────────────────────
+    function render(data) {
+      document.getElementById('results').style.display = 'block';
+      const days = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+      document.getElementById('metaBar').innerHTML = [
+        ['Sede', data.sede],
+        ['Fecha', data.date],
+        ['Día', days[data.day_of_week]],
+        ['Capacidad', data.capacity + ' pers.'],
+        ['Eventos', data.total_events],
+      ].map(([l,v]) => `<div class="meta-pill">
+        <div class="meta-pill-label">${l}</div>
+        <div class="meta-pill-value">${v}</div>
+      </div>`).join('');
+
+      // Legend
+      const TIERS = [
+        ['Baja','≤10%','$1.000'],
+        ['Medio bajo','>10–25%','$2.500'],
+        ['Media','>25–45%','$3.500'],
+        ['Media alta','>45–70%','$5.000'],
+        ['Alta','>70%','$6.000'],
+        ['Máxima','100%','Sin compras'],
+      ];
+      document.getElementById('legendEl').innerHTML = TIERS.map(([t,p,pr]) =>
+        `<div class="legend-chip">
+          <div class="legend-dot" style="background:${TIER_COLORS[t]}"></div>
+          ${t} · ${p} · ${pr}
+        </div>`).join('');
+
+      renderTable(data);
+      renderFlowCharts(data);
+      renderPriceChart();
+      renderAsistencia(data);
+    }
+
+    function renderTable(data) {
+      document.getElementById('tableBody').innerHTML = data.hourly.map((h,i) => {
+        const hNum  = parseInt(h.hour);
+        const exp   = defExp(hNum, dow);
+        const tr    = getTier(h.pct);
+        const te    = getTier(exp);
+        const beta  = h.pct >= exp ? 1 : 0.6;
+        const fin   = calcFinal(tr.price, te.price, h.pct, exp);
+        const bc    = TIER_BADGE[tr.label] || 'badge-nodata';
+        const be    = TIER_BADGE[te.label] || 'badge-nodata';
+        const bb    = beta === 1 ? 'beta-1' : 'beta-06';
+        return `<tr>
+          <td class="td-hour">${h.hour}</td>
+          <td>${h.count}</td>
+          <td class="td-pct">${h.pct}%</td>
+          <td><span class="badge ${bc}">${tr.label}</span></td>
+          <td>${fmtPricePlain(tr.price)}</td>
+          <td><input class="exp-input" type="number" min="0" max="100"
+            value="${exp}" data-row="${i}"
+            onchange="onExpChange(${i},this.value)"
+            oninput="onExpChange(${i},this.value)" /></td>
+          <td id="te-${i}"><span class="badge ${be}">${te.label}</span></td>
+          <td id="pe-${i}">${fmtPricePlain(te.price)}</td>
+          <td id="bt-${i}"><span class="badge ${bb}">β=${beta}</span></td>
+          <td id="pf-${i}" class="td-final">${fmtPrice(fin)}</td>
+          <td style="color:var(--blue-300);font-weight:600">+${h.checkins_in_hour}</td>
+          <td style="color:#f87171;font-weight:600">-${h.checkouts_in_hour}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    function onExpChange(i, val) {
+      const h = chartData.hourly[i];
+      const ep = parseFloat(val);
+      if (isNaN(ep) || ep < 0 || ep > 100) return;
+      const tr = getTier(h.pct);
+      const te = getTier(ep);
+      const beta = h.pct >= ep ? 1 : 0.6;
+      const fin  = calcFinal(tr.price, te.price, h.pct, ep);
+      const be   = TIER_BADGE[te.label] || 'badge-nodata';
+      const bb   = beta === 1 ? 'beta-1' : 'beta-06';
+      document.getElementById(`te-${i}`).innerHTML = `<span class="badge ${be}">${te.label}</span>`;
+      document.getElementById(`pe-${i}`).textContent = fmtPricePlain(te.price);
+      document.getElementById(`bt-${i}`).innerHTML  = `<span class="badge ${bb}">β=${beta}</span>`;
+      document.getElementById(`pf-${i}`).innerHTML  = fmtPrice(fin);
+      renderPriceChart();
+    }
+
+    function resetExpected() {
+      document.querySelectorAll('.exp-input').forEach(inp => {
+        const i = parseInt(inp.dataset.row);
+        const v = defExp(parseInt(chartData.hourly[i].hour), dow);
+        inp.value = v;
+        onExpChange(i, v);
+      });
+    }
+
+    function getPriceData() {
+      return chartData.hourly.map((h,i) => {
+        const inp = document.querySelector(`.exp-input[data-row="${i}"]`);
+        const ep  = inp ? parseFloat(inp.value) : defExp(parseInt(h.hour), dow);
+        const tr  = getTier(h.pct);
+        const te  = getTier(ep);
+        return { fin: calcFinal(tr.price, te.price, h.pct, ep), color: TIER_COLORS[tr.label] };
+      });
+    }
+
+    const CHART_OPTS = {
+      scales: {
+        y: { ticks:{ color:'#75777d', font:{family:'Wix Madefor Display'} }, grid:{ color:'rgba(37,43,66,.8)' } },
+        x: { ticks:{ color:'#75777d', font:{family:'Wix Madefor Display'} }, grid:{ color:'rgba(37,43,66,.8)' } },
+      },
+      plugins: { legend:{ display:false } },
+      responsive: true,
+    };
+
+    function renderPriceChart() {
+      const pd = getPriceData();
+      const labels = chartData.hourly.map(h => h.hour);
+      if (chartPrice) chartPrice.destroy();
+      chartPrice = new Chart(document.getElementById('priceChart').getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            data: pd.map(d => d.fin),
+            backgroundColor: pd.map(d => d.color + 'cc'),
+            borderColor: pd.map(d => d.color),
+            borderWidth: 1,
+            borderRadius: 6,
+            borderSkipped: false,
+          }]
+        },
+        options: {
+          ...CHART_OPTS,
+          plugins: {
+            legend: { display:false },
+            tooltip: {
+              callbacks: {
+                label: ctx => {
+                  const h = chartData.hourly[ctx.dataIndex];
+                  const inp = document.querySelector(`.exp-input[data-row="${ctx.dataIndex}"]`);
+                  const ep = inp ? parseFloat(inp.value) : '?';
+                  const b = h.pct >= ep ? 1 : 0.6;
+                  return [`Precio Final: ${ctx.raw ? '$'+ctx.raw.toLocaleString('es-CL') : '—'}`, `Real: ${h.pct}%  ·  Esp: ${ep}%  ·  β=${b}`];
+                }
+              }
+            }
+          },
+          scales: {
+            y: { ticks:{ color:'#75777d', callback: v => '$'+v.toLocaleString('es-CL') }, grid:{color:'rgba(37,43,66,.8)'} },
+            x: { ticks:{ color:'#75777d' }, grid:{color:'rgba(37,43,66,.8)'} },
+          }
+        }
+      });
+    }
+
+    // ── Asistencia por hora ──────────────────────────────────────────────
+    function renderAsistencia(data) {
+      const labels   = data.hourly.map(h => h.hour);
+      const counts   = data.hourly.map(h => h.checkins_in_hour);
+      const total    = counts.reduce((s,v) => s+v, 0);
+      const maxCount = Math.max(...counts);
+      const peakIdx  = counts.indexOf(maxCount);
+      const avgCount = total > 0 ? (total / counts.filter(v=>v>0).length).toFixed(1) : 0;
+
+      // Line chart (teal — igual al screenshot)
+      if (chartAsist) chartAsist.destroy();
+      const TEAL = '#0d9c73';
+      chartAsist = new Chart(document.getElementById('asistChart').getContext('2d'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Entradas',
+            data: counts,
+            borderColor: TEAL,
+            backgroundColor: 'rgba(13,156,115,.10)',
+            borderWidth: 2,
+            pointBackgroundColor: TEAL,
+            pointBorderColor: '#111317',
+            pointBorderWidth: 2,
+            pointRadius: 5,
+            pointHoverRadius: 7,
+            tension: 0.3,
+            fill: true,
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: ctx => `Entradas: ${ctx.raw}  ·  ${total > 0 ? ((ctx.raw/total)*100).toFixed(1) : 0}% del total`
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { color:'#75777d', stepSize: 5 },
+              grid:  { color:'rgba(37,43,66,.8)' }
+            },
+            x: {
+              ticks: { color:'#75777d' },
+              grid:  { color:'rgba(37,43,66,.8)' }
+            }
+          }
+        }
+      });
+
+      // Table
+      document.getElementById('asistTotal').textContent = total;
+      document.getElementById('asistTableBody').innerHTML = data.hourly.map((h,i) => {
+        const pct  = total > 0 ? ((counts[i]/total)*100).toFixed(1) : 0;
+        const barW = total > 0 ? Math.round((counts[i]/maxCount)*100) : 0;
+        const isPeak = i === peakIdx;
+        return `<tr>
+          <td style="color:${isPeak ? '#fff':'var(--text-secondary)'};font-weight:${isPeak?'700':'400'};padding:11px 14px;">
+            ${h.hour}${isPeak ? ' <span style="font-size:10px;color:#0d9c73;font-family:\'Sora\',sans-serif;font-weight:700;">PICO</span>' : ''}
+          </td>
+          <td style="font-family:'Sora',sans-serif;font-weight:600;color:${isPeak?'#0d9c73':'var(--text-secondary)'};padding:11px 14px;">
+            ${counts[i]}
+          </td>
+          <td style="padding:11px 14px;">
+            <div class="asist-bar-wrap">
+              <div class="asist-bar" style="width:${barW}%;max-width:80px;opacity:${isPeak?1:0.55}"></div>
+              <span style="font-size:11px;color:var(--text-muted)">${pct}%</span>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+
+      // Summary cards
+      document.getElementById('asistSummary').innerHTML = [
+        { label:'Total entradas', value: total, sub: 'en el período analizado' },
+        { label:'Hora pico', value: data.hourly[peakIdx]?.hour || '—', sub: `${maxCount} entradas (${total > 0 ? ((maxCount/total)*100).toFixed(1) : 0}% del total)` },
+        { label:'Promedio por hora', value: avgCount, sub: 'entradas en horas con actividad' },
+      ].map(c => `<div class="summary-card">
+        <div class="summary-card-label">${c.label}</div>
+        <div class="summary-card-value">${c.value}</div>
+        <div class="summary-card-sub">${c.sub}</div>
+      </div>`).join('');
+    }
+
+    function renderFlowCharts(data) {
+      const labels = data.hourly.map(h => h.hour);
+      if (chartOcc) chartOcc.destroy();
+      chartOcc = new Chart(document.getElementById('occChart').getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            data: data.hourly.map(h => h.pct),
+            backgroundColor: data.hourly.map(h => (TIER_COLORS[getTier(h.pct).label]||'#75777d')+'cc'),
+            borderColor:      data.hourly.map(h => TIER_COLORS[getTier(h.pct).label]||'#75777d'),
+            borderWidth: 1, borderRadius: 6, borderSkipped: false,
+          }]
+        },
+        options: {
+          ...CHART_OPTS,
+          scales: {
+            y: { min:0, max:100, ticks:{ color:'#75777d', callback: v=>v+'%' }, grid:{color:'rgba(37,43,66,.8)'} },
+            x: { ticks:{ color:'#75777d' }, grid:{color:'rgba(37,43,66,.8)'} },
+          }
+        }
+      });
+
+      if (chartFlow) chartFlow.destroy();
+      chartFlow = new Chart(document.getElementById('flowChart').getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            { label:'Entradas', data: data.hourly.map(h=>h.checkins_in_hour),
+              backgroundColor:'rgba(0,46,247,.75)', borderColor:'#3358f9', borderWidth:1, borderRadius:5, borderSkipped:false },
+            { label:'Salidas', data: data.hourly.map(h=>h.checkouts_in_hour),
+              backgroundColor:'rgba(239,68,68,.65)', borderColor:'#ef4444', borderWidth:1, borderRadius:5, borderSkipped:false },
+          ]
+        },
+        options: {
+          ...CHART_OPTS,
+          plugins: { legend:{ labels:{ color:'#a5a7b0', font:{family:'Wix Madefor Display'}, boxWidth:12, boxHeight:12 } } },
+        }
+      });
+    }
+  </script>
+</body>
+</html>
