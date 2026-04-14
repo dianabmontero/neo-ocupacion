@@ -52,6 +52,9 @@ def process_excel(file_bytes, capacity):
     df = df.dropna(subset=['_dt'])
     df = df.sort_values('_dt')
 
+    # Convert Argentina ERP time → Chile time (Argentina UTC-3, Chile UTC-4 → -1 h)
+    df['_dt'] = df['_dt'] - pd.Timedelta(hours=1)
+
     # Normalize action: +1 check-in, -1 check-out, 0 ignorar (bloqueado, denegado, etc.)
     CHECKIN_WORDS  = ['liberado', 'entrada', 'acesso', 'access']
     CHECKOUT_WORDS = ['saída', 'saida', 'salida', 'exit', 'egreso']
@@ -74,24 +77,26 @@ def process_excel(file_bytes, capacity):
     df = df[df['_checkin'] != 0].copy()
     df['_running'] = df['_checkin'].cumsum().clip(lower=0)
 
-    # Build hourly snapshots: occupancy AT start of each hour = running count at that moment
+    # Build hourly snapshots in Chile time
     min_hour = df['_dt'].dt.hour.min()
     max_hour = df['_dt'].dt.hour.max()
     date_str = df['_dt'].dt.date.iloc[0].strftime('%d/%m/%Y')
 
     hourly = []
-    for h in range(min_hour, max_hour + 2):
-        # Running count just before this hour begins
-        before = df[df['_dt'].dt.hour < h]
-        count = int(before['_checkin'].sum()) if len(before) > 0 else 0
-        count = max(0, count)
-        pct = round((count / capacity) * 100, 1)
-        tier = get_tier(pct)
-
-        # Eventos en esta hora (solo los que cuentan)
+    for h in range(min_hour, max_hour + 1):
         in_hour = df[df['_dt'].dt.hour == h]
         checkins  = int((in_hour['_checkin'] == 1).sum())
         checkouts = int((in_hour['_checkin'] == -1).sum())
+
+        if h == max_hour:
+            # Last (current) partial hour: include all events up to now
+            count = int(df[df['_dt'].dt.hour <= h]['_checkin'].sum())
+        else:
+            before = df[df['_dt'].dt.hour < h]
+            count = int(before['_checkin'].sum()) if len(before) > 0 else 0
+        count = max(0, count)
+        pct = round((count / capacity) * 100, 1)
+        tier = get_tier(pct)
 
         hourly.append({
             "hour": f"{h:02d}:00",
