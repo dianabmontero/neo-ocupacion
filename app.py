@@ -72,6 +72,28 @@ def process_excel(file_bytes, capacity):
 
     # Filtrar solo eventos que cuentan (ignorar 0)
     df = df[df['_checkin'] != 0].copy()
+
+    # Deduplicate per person: ignore repeated check-ins if already inside,
+    # and repeated check-outs if already outside (handles turnstile bugs)
+    name_col = next((c for c in df.columns if 'nombre' in c.lower()), None)
+    if name_col:
+        name_state = {}  # True = inside
+        keep = []
+        for _, row in df.iterrows():
+            name = str(row[name_col])
+            c = row['_checkin']
+            inside = name_state.get(name, False)
+            if c == 1 and not inside:
+                name_state[name] = True
+                keep.append(True)
+            elif c == -1 and inside:
+                name_state[name] = False
+                keep.append(True)
+            else:
+                keep.append(False)
+        ignored += df[~pd.Series(keep, index=df.index)].shape[0]
+        df = df[pd.Series(keep, index=df.index)].copy()
+
     df['_running'] = df['_checkin'].cumsum().clip(lower=0)
 
     # Build hourly snapshots in Chile time
