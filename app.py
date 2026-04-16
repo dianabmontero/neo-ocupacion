@@ -38,7 +38,7 @@ def process_excel(file_bytes, capacity):
 
     # Find datetime and action columns (flexible naming)
     date_col = next((c for c in df.columns if 'hora' in c.lower() or 'acceso' in c.lower()), None)
-    action_col = next((c for c in df.columns if 'acci' in c.lower()), None)
+    action_col = next((c for c in df.columns if 'acci' in c.lower() or 'ação' in c.lower() or 'acao' in c.lower()), None)
 
     if not date_col or not action_col:
         return None, "No se encontraron columnas de fecha/hora o acción en el archivo."
