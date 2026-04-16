@@ -576,6 +576,7 @@
         <button class="tab-btn active" onclick="switchTab('precios')">💰 Precios y Ponderación</button>
         <button class="tab-btn" onclick="switchTab('asistencia')">🕐 Asistencia por hora</button>
         <button class="tab-btn" onclick="switchTab('flujo')">📊 Flujo de personas</button>
+        <button class="tab-btn" onclick="switchTab('esperada')">📋 Ocup. Esperada</button>
       </div>
 
       <!-- Tab: Precios -->
@@ -675,6 +676,25 @@
         </div>
       </div>
 
+      <!-- Tab: Ocup. Esperada -->
+      <div id="tab-esperada" class="tab-panel">
+        <div class="chart-card">
+          <div class="section-title">Tabla de Ocupación Esperada — Chile</div>
+          <div class="table-wrap" style="margin-top:16px">
+            <table style="min-width:unset;width:100%;font-size:13px;">
+              <thead>
+                <tr>
+                  <th>Hora</th>
+                  <th>Lunes</th><th>Martes</th><th>Miércoles</th><th>Jueves</th>
+                  <th>Viernes</th><th>Sábado</th><th>Domingo</th>
+                </tr>
+              </thead>
+              <tbody id="espTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
     </div><!-- /results -->
   </div><!-- /page -->
 
@@ -764,7 +784,38 @@
     let chartPrice = null, chartOcc = null, chartFlow = null, chartAsist = null;
 
     // ── Tabs ──────────────────────────────────────────────────────────────
-    const TAB_NAMES = ['precios','asistencia','flujo'];
+    const TAB_NAMES = ['precios','asistencia','flujo','esperada'];
+
+    // Render Ocup Esperada static table
+    (function renderEspTable() {
+      const OCUP = [
+        [6,  'Media alta','Media alta','Media alta','Media alta','Media',    'Baja',      'Baja'],
+        [7,  'Alta',      'Alta',      'Alta',      'Alta',      'Media alta','Baja',     'Baja'],
+        [8,  'Alta',      'Alta',      'Alta',      'Media alta','Media alta','Baja',     'Baja'],
+        [9,  'Media',     'Media alta','Media',     'Media',     'Media',    'Media alta','Media'],
+        [10, 'Media',     'Media',     'Media alta','Media',     'Media',    'Media alta','Media'],
+        [11, 'Media',     'Media',     'Media',     'Media',     'Media',    'Media alta','Media alta'],
+        [12, 'Media',     'Media',     'Media',     'Media',     'Media',    'Media alta','Media alta'],
+        [13, 'Media',     'Media alta','Media',     'Media',     'Media',    'Medio bajo','Medio bajo'],
+        [14, 'Medio bajo','Medio bajo','Medio bajo','Medio bajo','Medio bajo','Baja',     'Baja'],
+        [15, 'Media',     'Media',     'Medio bajo','Medio bajo','Media',    'Baja',      'Baja'],
+        [16, 'Media',     'Media',     'Media',     'Media',     'Media',    'Baja',      'Baja'],
+        [17, 'Media alta','Media alta','Media alta','Media',     'Media',    'Baja',      'Baja'],
+        [18, 'Alta',      'Alta',      'Alta',      'Media alta','Media',    'Baja',      'Baja'],
+        [19, 'Alta',      'Alta',      'Alta',      'Media alta','Media',    'Baja',      'Baja'],
+        [20, 'Media',     'Media alta','Media',     'Media',     'Medio bajo','Baja',     'Baja'],
+        [21, 'Baja',      'Baja',      'Baja',      'Baja',      'Baja',     'Baja',      'Baja'],
+        [22, 'Baja',      'Baja',      'Baja',      'Baja',      'Baja',     'Baja',      'Baja'],
+      ];
+      document.getElementById('espTableBody').innerHTML = OCUP.map(row => {
+        const [h, ...days] = row;
+        const cells = days.map(d => {
+          const bc = TIER_BADGE[d] || 'badge-nodata';
+          return `<td><span class="badge ${bc}">${d}</span></td>`;
+        }).join('');
+        return `<tr><td class="td-hour">${String(h).padStart(2,'0')}:00</td>${cells}</tr>`;
+      }).join('');
+    })();
     function switchTab(name) {
       document.querySelectorAll('.tab-btn').forEach((b,i)=>{
         b.classList.toggle('active', TAB_NAMES[i] === name);
