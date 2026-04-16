@@ -102,15 +102,16 @@ def process_excel(file_bytes, capacity):
     date_str = df['_dt'].dt.date.iloc[0].strftime('%d/%m/%Y')
 
     hourly = []
-    for h in range(min_hour, max_hour + 1):
+    for h in range(min_hour, max_hour + 2):
         in_hour = df[df['_dt'].dt.hour == h]
         checkins  = int((in_hour['_checkin'] == 1).sum())
         checkouts = int((in_hour['_checkin'] == -1).sum())
 
         if h == max_hour:
-            # Last (current) partial hour: include all events up to now
+            # Last hour with events: count everyone still inside at end of that hour
             count = int(df[df['_dt'].dt.hour <= h]['_checkin'].sum())
         else:
+            # All other hours (including next empty hour): snapshot at start of hour
             before = df[df['_dt'].dt.hour < h]
             count = int(before['_checkin'].sum()) if len(before) > 0 else 0
         count = max(0, count)
