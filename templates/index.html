@@ -614,6 +614,8 @@
                 <th>Precio Esp.</th>
                 <th>β</th>
                 <th>💰 Precio Final</th>
+                <th>🤸 Reserva Clase</th>
+                <th>📱 Personitas</th>
                 <th>Entradas</th>
                 <th>Salidas</th>
               </tr>
@@ -719,6 +721,19 @@
     };
 
     function defExp(h, dow) { return (CHILE[h] || [])[dow] ?? 35; }
+
+    function getPersonitas(label) {
+      if (label === 'Baja')                        return '👤';
+      if (label === 'Medio bajo' || label === 'Media') return '👤👤';
+      if (label === 'Media alta' || label === 'Alta')  return '👤👤👤';
+      if (label === 'Máxima')                      return '👤👤👤👤';
+      return '—';
+    }
+
+    function fmtReserva(fin) {
+      if (fin === null) return '—';
+      return '$' + Math.round(fin * 1.30).toLocaleString('es-CL');
+    }
 
     function getTier(pct) {
       if (pct === null || pct === undefined || isNaN(pct)) return {label:'No hay data',price:null};
@@ -850,6 +865,8 @@
           <td id="pe-${i}">${fmtPricePlain(te.price)}</td>
           <td id="bt-${i}"><span class="badge ${bb}">β=${beta}</span></td>
           <td id="pf-${i}" class="td-final">${fmtPrice(fin)}</td>
+          <td id="rv-${i}" style="color:#a78bfa;font-weight:600">${fmtReserva(fin)}</td>
+          <td id="pp-${i}" style="font-size:16px">${getPersonitas(tr.label)}</td>
           <td style="color:var(--blue-300);font-weight:600">+${h.checkins_in_hour}</td>
           <td style="color:#f87171;font-weight:600">-${h.checkouts_in_hour}</td>
         </tr>`;
@@ -870,6 +887,7 @@
       document.getElementById(`pe-${i}`).textContent = fmtPricePlain(te.price);
       document.getElementById(`bt-${i}`).innerHTML  = `<span class="badge ${bb}">β=${beta}</span>`;
       document.getElementById(`pf-${i}`).innerHTML  = fmtPrice(fin);
+      document.getElementById(`rv-${i}`).textContent = fmtReserva(fin);
       renderPriceChart();
     }
 
