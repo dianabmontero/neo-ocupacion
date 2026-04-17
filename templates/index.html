@@ -57,6 +57,61 @@
       --tier-maxima:      #7f1d1d;
     }
 
+    html.light {
+      --bg:          #f0f2fa;
+      --surface:     #ffffff;
+      --surface2:    #e8ebf7;
+      --surface3:    #dde1f5;
+      --border:      #c8cde8;
+      --border-light:#b8bfe0;
+      --text:        #111317;
+      --text-secondary: #3d4060;
+      --text-muted:  #6b7099;
+      --white:       #111317;
+    }
+
+    /* Light mode badge overrides — darker, higher contrast greens */
+    html.light .badge-baja       { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+    html.light .badge-medio-bajo { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
+    html.light .badge-media      { background: #fef9c3; color: #854d0e; border: 1px solid #fde047; }
+    html.light .badge-media-alta { background: #ffedd5; color: #9a3412; border: 1px solid #fdba74; }
+    html.light .badge-alta       { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+    html.light .badge-nodata     { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+    html.light .beta-1           { background: #dbeafe; color: #1d4ed8; }
+    html.light .beta-06          { background: #ede9fe; color: #6d28d9; }
+
+    /* Light mode overrides for hardcoded colors */
+    html.light .meta-pill-value,
+    html.light .section-title,
+    html.light th,
+    html.light .td-hour,
+    html.light .summary-card-value,
+    html.light .tab-btn:not(.active) { color: #111317; }
+
+    html.light tbody tr:hover { background: rgba(0,46,247,.05); }
+    html.light .badge-nodata { color: #6b7099; }
+
+    html.light #liveCard {
+      background: #ffffff;
+      border-color: #c8cde8;
+    }
+    html.light .chart-card { background: #ffffff; border-color: #c8cde8; }
+    html.light .table-wrap { background: #ffffff; border-color: #c8cde8; }
+    html.light .tabs { background: #e8ebf7; border-color: #c8cde8; }
+    html.light .upload-card { background: #ffffff; border-color: #c8cde8; }
+    html.light .hint-row { background: #e8ebf7; border-color: #c8cde8; }
+    html.light .legend-chip { background: #e8ebf7; border-color: #c8cde8; color: #111317; }
+    html.light .exp-input { background: #f0f2fa; border-color: #c8cde8; color: #111317; }
+    html.light .meta-row .meta-pill { background: #ffffff; border-color: #c8cde8; }
+    html.light .error-msg { background: #fff0f0; }
+    html.light thead tr { background: #e8ebf7; }
+    html.light td { color: #111317; }
+    html.light .td-final { color: #002ef7 !important; }
+    html.light .td-unavailable { color: #9ca3af; }
+    html.light .summary-card { background: #ffffff; border-color: #c8cde8; }
+    html.light .summary-card-label { color: #6b7099; }
+    html.light .summary-card-sub { color: #6b7099; }
+
     html { scroll-behavior: smooth; }
 
     body {
@@ -66,6 +121,7 @@
       min-height: 100vh;
       font-size: 14px;
       line-height: 1.5;
+      transition: background .2s, color .2s;
     }
 
     /* ── Top nav ── */
@@ -535,6 +591,19 @@
     <span class="topnav-logo">NEO</span>
     <div class="topnav-divider"></div>
     <span class="topnav-sub">Panel de Ocupación</span>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+      <span style="font-size:12px;color:rgba(255,255,255,.7)" id="themeLabel">🌙</span>
+      <button id="themeToggle" onclick="toggleTheme()" style="
+        width:40px;height:22px;border-radius:99px;border:none;cursor:pointer;
+        background:rgba(255,255,255,.25);position:relative;transition:background .2s;padding:0;
+      ">
+        <span id="themeThumb" style="
+          position:absolute;top:3px;left:3px;
+          width:16px;height:16px;border-radius:50%;
+          background:#fff;transition:transform .2s;display:block;
+        "></span>
+      </button>
+    </div>
   </nav>
 
   <div class="page">
@@ -575,7 +644,6 @@
       <div class="tabs">
         <button class="tab-btn active" onclick="switchTab('precios')">💰 Precios y Ponderación</button>
         <button class="tab-btn" onclick="switchTab('asistencia')">🕐 Asistencia por hora</button>
-        <button class="tab-btn" onclick="switchTab('flujo')">📊 Flujo de personas</button>
         <button class="tab-btn" onclick="switchTab('esperada')">📋 Ocup. Esperada</button>
       </div>
 
@@ -697,17 +765,6 @@
 
       </div>
 
-      <!-- Tab: Flujo -->
-      <div id="tab-flujo" class="tab-panel">
-        <div class="chart-card">
-          <div class="section-title">Ocupación % por hora</div>
-          <canvas id="occChart" height="80"></canvas>
-        </div>
-        <div class="chart-card">
-          <div class="section-title">Entradas y Salidas por hora</div>
-          <canvas id="flowChart" height="70"></canvas>
-        </div>
-      </div>
 
       <!-- Tab: Ocup. Esperada -->
       <div id="tab-esperada" class="tab-panel">
@@ -819,7 +876,7 @@
     let chartPrice = null, chartOcc = null, chartFlow = null, chartAsist = null;
 
     // ── Tabs ──────────────────────────────────────────────────────────────
-    const TAB_NAMES = ['precios','asistencia','flujo','esperada'];
+    const TAB_NAMES = ['precios','asistencia','esperada'];
 
     // Render Ocup Esperada static table
     (function renderEspTable() {
@@ -851,6 +908,20 @@
         return `<tr><td class="td-hour">${String(h).padStart(2,'0')}:00</td>${cells}</tr>`;
       }).join('');
     })();
+    // ── Theme toggle ─────────────────────────────────────────────────────
+    function applyTheme(light) {
+      document.documentElement.classList.toggle('light', light);
+      document.getElementById('themeLabel').textContent = light ? '☀️' : '🌙';
+      document.getElementById('themeThumb').style.transform = light ? 'translateX(18px)' : 'translateX(0)';
+      document.getElementById('themeToggle').style.background = light ? 'rgba(255,255,255,.6)' : 'rgba(255,255,255,.25)';
+    }
+    function toggleTheme() {
+      const isLight = !document.documentElement.classList.contains('light');
+      localStorage.setItem('neo-theme', isLight ? 'light' : 'dark');
+      applyTheme(isLight);
+    }
+    applyTheme(localStorage.getItem('neo-theme') === 'light');
+
     function switchTab(name) {
       document.querySelectorAll('.tab-btn').forEach((b,i)=>{
         b.classList.toggle('active', TAB_NAMES[i] === name);
@@ -922,7 +993,6 @@
 
       renderLiveCard(data);
       renderTable(data);
-      renderFlowCharts(data);
       renderPriceChart();
       renderAsistencia(data);
     }
@@ -1067,46 +1137,7 @@
       responsive: true,
     };
 
-    function renderPriceChart() {
-      const pd = getPriceData();
-      const labels = chartData.hourly.map(h => h.hour);
-      if (chartPrice) chartPrice.destroy();
-      chartPrice = new Chart(document.getElementById('priceChart').getContext('2d'), {
-        type: 'bar',
-        data: {
-          labels,
-          datasets: [{
-            data: pd.map(d => d.fin),
-            backgroundColor: pd.map(d => d.color + 'cc'),
-            borderColor: pd.map(d => d.color),
-            borderWidth: 1,
-            borderRadius: 6,
-            borderSkipped: false,
-          }]
-        },
-        options: {
-          ...CHART_OPTS,
-          plugins: {
-            legend: { display:false },
-            tooltip: {
-              callbacks: {
-                label: ctx => {
-                  const h = chartData.hourly[ctx.dataIndex];
-                  const inp = document.querySelector(`.exp-input[data-row="${ctx.dataIndex}"]`);
-                  const ep = inp ? parseFloat(inp.value) : '?';
-                  const b = h.pct >= ep ? 1 : 0.6;
-                  return [`Precio Final: ${ctx.raw ? '$'+ctx.raw.toLocaleString('es-CL') : '—'}`, `Real: ${h.pct}%  ·  Esp: ${ep}%  ·  β=${b}`];
-                }
-              }
-            }
-          },
-          scales: {
-            y: { ticks:{ color:'#75777d', callback: v => '$'+v.toLocaleString('es-CL') }, grid:{color:'rgba(37,43,66,.8)'} },
-            x: { ticks:{ color:'#75777d' }, grid:{color:'rgba(37,43,66,.8)'} },
-          }
-        }
-      });
-    }
+    function renderPriceChart() { /* chart removed */ }
 
     // ── Asistencia por hora ──────────────────────────────────────────────
     function renderAsistencia(data) {
@@ -1170,7 +1201,7 @@
         const barW = total > 0 ? Math.round((counts[i]/maxCount)*100) : 0;
         const isPeak = i === peakIdx;
         return `<tr>
-          <td style="color:${isPeak ? '#fff':'var(--text-secondary)'};font-weight:${isPeak?'700':'400'};padding:11px 14px;">
+          <td style="color:${isPeak ? 'var(--text)':'var(--text-secondary)'};font-weight:${isPeak?'700':'400'};padding:11px 14px;">
             ${h.hour}${isPeak ? ' <span style="font-size:10px;color:#0d9c73;font-family:\'Sora\',sans-serif;font-weight:700;">PICO</span>' : ''}
           </td>
           <td style="font-family:'Sora',sans-serif;font-weight:600;color:${isPeak?'#0d9c73':'var(--text-secondary)'};padding:11px 14px;">
@@ -1197,47 +1228,7 @@
       </div>`).join('');
     }
 
-    function renderFlowCharts(data) {
-      const labels = data.hourly.map(h => h.hour);
-      if (chartOcc) chartOcc.destroy();
-      chartOcc = new Chart(document.getElementById('occChart').getContext('2d'), {
-        type: 'bar',
-        data: {
-          labels,
-          datasets: [{
-            data: data.hourly.map(h => h.pct),
-            backgroundColor: data.hourly.map(h => (TIER_COLORS[getTier(h.pct).label]||'#75777d')+'cc'),
-            borderColor:      data.hourly.map(h => TIER_COLORS[getTier(h.pct).label]||'#75777d'),
-            borderWidth: 1, borderRadius: 6, borderSkipped: false,
-          }]
-        },
-        options: {
-          ...CHART_OPTS,
-          scales: {
-            y: { min:0, max:100, ticks:{ color:'#75777d', callback: v=>v+'%' }, grid:{color:'rgba(37,43,66,.8)'} },
-            x: { ticks:{ color:'#75777d' }, grid:{color:'rgba(37,43,66,.8)'} },
-          }
-        }
-      });
-
-      if (chartFlow) chartFlow.destroy();
-      chartFlow = new Chart(document.getElementById('flowChart').getContext('2d'), {
-        type: 'bar',
-        data: {
-          labels,
-          datasets: [
-            { label:'Entradas', data: data.hourly.map(h=>h.checkins_in_hour),
-              backgroundColor:'rgba(0,46,247,.75)', borderColor:'#3358f9', borderWidth:1, borderRadius:5, borderSkipped:false },
-            { label:'Salidas', data: data.hourly.map(h=>h.checkouts_in_hour),
-              backgroundColor:'rgba(239,68,68,.65)', borderColor:'#ef4444', borderWidth:1, borderRadius:5, borderSkipped:false },
-          ]
-        },
-        options: {
-          ...CHART_OPTS,
-          plugins: { legend:{ labels:{ color:'#a5a7b0', font:{family:'Wix Madefor Display'}, boxWidth:12, boxHeight:12 } } },
-        }
-      });
-    }
+    function renderFlowCharts(data) { /* charts removed */ }
   </script>
 </body>
 </html>
