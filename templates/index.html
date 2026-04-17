@@ -702,51 +702,51 @@
     // ── Design tokens ──────────────────────────────────────────────────────
     const TIER_COLORS = {
       'Baja':       '#22c55e',
-      'Medio bajo': '#86efac',
+      'Media baja': '#86efac',
       'Media':      '#facc15',
       'Media alta': '#f97316',
       'Alta':       '#ef4444',
-      'Máxima':     '#7f1d1d',
       'No hay data':'#75777d',
     };
     const TIER_BADGE = {
       'Baja':       'badge-baja',
-      'Medio bajo': 'badge-medio-bajo',
+      'Media baja': 'badge-medio-bajo',
       'Media':      'badge-media',
       'Media alta': 'badge-media-alta',
       'Alta':       'badge-alta',
-      'Máxima':     'badge-maxima',
       'No hay data':'badge-nodata',
     };
+    // Tier rank for β comparison (low < low_medium < medium < medium_high < high)
+    const TIER_RANK = { 'Baja': 0, 'Media baja': 1, 'Media': 2, 'Media alta': 3, 'Alta': 4 };
 
-    // Ocup Esperada (Lunes=0 … Domingo=6), midpoints: Baja=5, MedioBajo=17, Media=35, MediaAlta=57, Alta=85
+    // Ocup Esperada (Lunes=0 … Domingo=6)
+    // Midpoints: Baja=15, MediaBaja=37, Media=52, MediaAlta=75, Alta=95
     const CHILE = {
-       6:[57,57,57,57,35, 5, 5],
-       7:[85,85,85,85,57, 5, 5],
-       8:[85,85,85,57,57, 5, 5],
-       9:[35,57,35,35,35,57,35],
-      10:[35,35,57,35,35,57,35],
-      11:[35,35,35,35,35,57,57],
-      12:[35,35,35,35,35,57,57],
-      13:[35,57,35,35,35,17,17],
-      14:[17,17,17,17,17, 5, 5],
-      15:[35,35,17,17,35, 5, 5],
-      16:[35,35,35,35,35, 5, 5],
-      17:[57,57,57,35,35, 5, 5],
-      18:[85,85,85,57,35, 5, 5],
-      19:[85,85,85,57,35, 5, 5],
-      20:[35,57,35,35,17, 5, 5],
-      21:[ 5, 5, 5, 5, 5, 5, 5],
-      22:[ 5, 5, 5, 5, 5, 5, 5],
+       6:[75,75,75,75,52,15,15],
+       7:[95,95,95,95,75,15,15],
+       8:[95,95,95,75,75,15,15],
+       9:[52,75,52,52,52,75,52],
+      10:[52,52,75,52,52,75,52],
+      11:[52,52,52,52,52,75,75],
+      12:[52,52,52,52,52,75,75],
+      13:[52,75,52,52,52,37,37],
+      14:[37,37,37,37,37,15,15],
+      15:[52,52,37,37,52,15,15],
+      16:[52,52,52,52,52,15,15],
+      17:[75,75,75,52,52,15,15],
+      18:[95,95,95,75,52,15,15],
+      19:[95,95,95,75,52,15,15],
+      20:[52,75,52,52,37,15,15],
+      21:[15,15,15,15,15,15,15],
+      22:[15,15,15,15,15,15,15],
     };
 
     function defExp(h, dow) { return (CHILE[h] || [])[dow] ?? 35; }
 
     function getPersonitas(label) {
-      if (label === 'Baja')                        return '👤';
-      if (label === 'Medio bajo' || label === 'Media') return '👤👤';
+      if (label === 'Baja')                           return '👤';
+      if (label === 'Media baja' || label === 'Media') return '👤👤';
       if (label === 'Media alta' || label === 'Alta')  return '👤👤👤';
-      if (label === 'Máxima')                      return '👤👤👤👤';
       return '—';
     }
 
@@ -756,19 +756,21 @@
     }
 
     function getTier(pct) {
-      if (pct === null || pct === undefined || isNaN(pct)) return {label:'No hay data',price:null};
-      if (pct >= 100) return {label:'Máxima',    price:null};
-      if (pct > 70)   return {label:'Alta',       price:6000};
-      if (pct > 45)   return {label:'Media alta', price:5000};
-      if (pct > 25)   return {label:'Media',      price:3500};
-      if (pct > 10)   return {label:'Medio bajo', price:2500};
-      return               {label:'Baja',       price:1000};
+      if (pct === null || pct === undefined || isNaN(pct)) return {label:'No hay data', price:null, rank:-1};
+      if (pct > 90)  return {label:'Alta',       price:5000, rank:4};
+      if (pct > 60)  return {label:'Media alta', price:4000, rank:3};
+      if (pct > 45)  return {label:'Media',      price:3000, rank:2};
+      if (pct > 30)  return {label:'Media baja', price:2000, rank:1};
+      return              {label:'Baja',       price:1000, rank:0};
     }
 
-    function calcFinal(pr, pe, rp, ep) {
+    function calcFinal(pr, pe, trLabel, teLabel) {
       if (pr === null) return null;
       if (pe === null) return pr;
-      const b = rp >= ep ? 1 : 0.6;
+      const rankR = TIER_RANK[trLabel] ?? 0;
+      const rankE = TIER_RANK[teLabel] ?? 0;
+      // β=1 when real ≤ esperado, β=0.6 when real > esperado
+      const b = rankR <= rankE ? 1 : 0.6;
       return Math.round(b * pr + (1 - b) * pe);
     }
 
@@ -796,14 +798,14 @@
         [10, 'Media',     'Media',     'Media alta','Media',     'Media',    'Media alta','Media'],
         [11, 'Media',     'Media',     'Media',     'Media',     'Media',    'Media alta','Media alta'],
         [12, 'Media',     'Media',     'Media',     'Media',     'Media',    'Media alta','Media alta'],
-        [13, 'Media',     'Media alta','Media',     'Media',     'Media',    'Medio bajo','Medio bajo'],
-        [14, 'Medio bajo','Medio bajo','Medio bajo','Medio bajo','Medio bajo','Baja',     'Baja'],
-        [15, 'Media',     'Media',     'Medio bajo','Medio bajo','Media',    'Baja',      'Baja'],
+        [13, 'Media',     'Media alta','Media',     'Media',     'Media',    'Media baja','Media baja'],
+        [14, 'Media baja','Media baja','Media baja','Media baja','Media baja','Baja',     'Baja'],
+        [15, 'Media',     'Media',     'Media baja','Media baja','Media',    'Baja',      'Baja'],
         [16, 'Media',     'Media',     'Media',     'Media',     'Media',    'Baja',      'Baja'],
         [17, 'Media alta','Media alta','Media alta','Media',     'Media',    'Baja',      'Baja'],
         [18, 'Alta',      'Alta',      'Alta',      'Media alta','Media',    'Baja',      'Baja'],
         [19, 'Alta',      'Alta',      'Alta',      'Media alta','Media',    'Baja',      'Baja'],
-        [20, 'Media',     'Media alta','Media',     'Media',     'Medio bajo','Baja',     'Baja'],
+        [20, 'Media',     'Media alta','Media',     'Media',     'Media baja','Baja',     'Baja'],
         [21, 'Baja',      'Baja',      'Baja',      'Baja',      'Baja',     'Baja',      'Baja'],
         [22, 'Baja',      'Baja',      'Baja',      'Baja',      'Baja',     'Baja',      'Baja'],
       ];
@@ -872,12 +874,11 @@
 
       // Legend
       const TIERS = [
-        ['Baja','≤10%','$1.000'],
-        ['Medio bajo','>10–25%','$2.500'],
-        ['Media','>25–45%','$3.500'],
-        ['Media alta','>45–70%','$5.000'],
-        ['Alta','>70%','$6.000'],
-        ['Máxima','100%','Sin compras'],
+        ['Baja','≤30%','$1.000'],
+        ['Media baja','≤45%','$2.000'],
+        ['Media','≤60%','$3.000'],
+        ['Media alta','≤90%','$4.000'],
+        ['Alta','>90%','$5.000'],
       ];
       document.getElementById('legendEl').innerHTML = TIERS.map(([t,p,pr]) =>
         `<div class="legend-chip">
@@ -897,8 +898,8 @@
         const exp   = defExp(hNum, dow);
         const tr    = getTier(h.pct);
         const te    = getTier(exp);
-        const beta  = h.pct >= exp ? 1 : 0.6;
-        const fin   = calcFinal(tr.price, te.price, h.pct, exp);
+        const beta  = (TIER_RANK[tr.label] ?? 0) <= (TIER_RANK[te.label] ?? 0) ? 1 : 0.6;
+        const fin   = calcFinal(tr.price, te.price, tr.label, te.label);
         const bc    = TIER_BADGE[tr.label] || 'badge-nodata';
         const be    = TIER_BADGE[te.label] || 'badge-nodata';
         const bb    = beta === 1 ? 'beta-1' : 'beta-06';
@@ -930,8 +931,8 @@
       if (isNaN(ep) || ep < 0 || ep > 100) return;
       const tr = getTier(h.pct);
       const te = getTier(ep);
-      const beta = h.pct >= ep ? 1 : 0.6;
-      const fin  = calcFinal(tr.price, te.price, h.pct, ep);
+      const beta = (TIER_RANK[tr.label] ?? 0) <= (TIER_RANK[te.label] ?? 0) ? 1 : 0.6;
+      const fin  = calcFinal(tr.price, te.price, tr.label, te.label);
       const be   = TIER_BADGE[te.label] || 'badge-nodata';
       const bb   = beta === 1 ? 'beta-1' : 'beta-06';
       document.getElementById(`te-${i}`).innerHTML = `<span class="badge ${be}">${te.label}</span>`;
@@ -957,7 +958,7 @@
         const ep  = inp ? parseFloat(inp.value) : defExp(parseInt(h.hour), dow);
         const tr  = getTier(h.pct);
         const te  = getTier(ep);
-        return { fin: calcFinal(tr.price, te.price, h.pct, ep), color: TIER_COLORS[tr.label] };
+        return { fin: calcFinal(tr.price, te.price, tr.label, te.label), color: TIER_COLORS[tr.label] };
       });
     }
 

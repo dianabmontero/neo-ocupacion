@@ -8,27 +8,24 @@ app = Flask(__name__)
 CAPACITY_DEFAULT = 85
 
 PRICE_TIERS = [
-    {"label": "No hay data", "min": None, "max": None, "price": None},
-    {"label": "Baja",        "min": 0,    "max": 10,   "price": 1000},
-    {"label": "Medio bajo",  "min": 10,   "max": 25,   "price": 2500},
-    {"label": "Media",       "min": 25,   "max": 45,   "price": 3500},
-    {"label": "Media alta",  "min": 45,   "max": 70,   "price": 5000},
-    {"label": "Alta",        "min": 70,   "max": 100,  "price": 6000},
-    {"label": "Máxima",      "min": 100,  "max": 100,  "price": None},
+    {"label": "No hay data", "min": None, "max": None,  "price": None, "rank": -1},
+    {"label": "Baja",        "min": 0,    "max": 30,    "price": 1000, "rank": 0},
+    {"label": "Media baja",  "min": 30,   "max": 45,    "price": 2000, "rank": 1},
+    {"label": "Media",       "min": 45,   "max": 60,    "price": 3000, "rank": 2},
+    {"label": "Media alta",  "min": 60,   "max": 90,    "price": 4000, "rank": 3},
+    {"label": "Alta",        "min": 90,   "max": 100,   "price": 5000, "rank": 4},
 ]
 
 def get_tier(pct):
     if pct is None:
         return PRICE_TIERS[0]
-    if pct >= 100:
-        return PRICE_TIERS[6]
-    if pct > 70:
+    if pct > 90:
         return PRICE_TIERS[5]
-    if pct > 45:
+    if pct > 60:
         return PRICE_TIERS[4]
-    if pct > 25:
+    if pct > 45:
         return PRICE_TIERS[3]
-    if pct > 10:
+    if pct > 30:
         return PRICE_TIERS[2]
     return PRICE_TIERS[1]
 
