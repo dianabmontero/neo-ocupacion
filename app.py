@@ -143,9 +143,57 @@ def process_excel(file_bytes, capacity):
     }, None
 
 
+def process_checkins(file_bytes):
+    df = pd.read_excel(BytesIO(file_bytes))
+    df.columns = df.columns.str.strip()
+
+    name_col   = next((c for c in df.columns if 'nombre' in c.lower() or 'nome' in c.lower()), None)
+    action_col = next((c for c in df.columns if 'acci' in c.lower() or 'ação' in c.lower() or 'acao' in c.lower()), None)
+    date_col   = next((c for c in df.columns if 'hora' in c.lower() or 'acceso' in c.lower() or 'acesso' in c.lower()), None)
+
+    if not name_col or not action_col or not date_col:
+        return None, "No se encontraron columnas necesarias en el archivo."
+
+    CHECKIN_WORDS = ['liberado', 'entrada', 'acesso', 'access']
+    df = df[df[action_col].astype(str).str.lower().apply(lambda x: any(w in x for w in CHECKIN_WORDS))].copy()
+
+    df['_dt'] = pd.to_datetime(df[date_col], dayfirst=True, errors='coerce')
+    df = df.dropna(subset=['_dt'])
+
+    # Date range
+    date_from = df['_dt'].dt.date.min().strftime('%d/%m/%Y')
+    date_to   = df['_dt'].dt.date.max().strftime('%d/%m/%Y')
+    total_days = df['_dt'].dt.date.nunique()
+
+    # Count check-ins per person
+    counts = (
+        df.groupby(name_col)
+          .agg(total=('_dt', 'count'), last_visit=('_dt', 'max'))
+          .reset_index()
+          .rename(columns={name_col: 'nombre'})
+          .sort_values('total', ascending=False)
+    )
+    counts['last_visit'] = counts['last_visit'].dt.strftime('%d/%m/%Y %H:%M')
+
+    users = counts.to_dict(orient='records')
+    return {
+        "users": users,
+        "date_from": date_from,
+        "date_to": date_to,
+        "total_days": total_days,
+        "total_users": len(users),
+        "goal": 12,
+    }, None
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+@app.route("/checkins")
+def checkins():
+    return render_template("checkins.html")
 
 
 @app.route("/upload", methods=["POST"])
@@ -158,6 +206,17 @@ def upload():
         return jsonify({"error": "La capacidad debe ser mayor a 0"}), 400
 
     data, err = process_excel(f.read(), capacity)
+    if err:
+        return jsonify({"error": err}), 400
+    return jsonify(data)
+
+
+@app.route("/upload-checkins", methods=["POST"])
+def upload_checkins():
+    if "file" not in request.files:
+        return jsonify({"error": "No se recibió archivo"}), 400
+    f = request.files["file"]
+    data, err = process_checkins(f.read())
     if err:
         return jsonify({"error": err}), 400
     return jsonify(data)
