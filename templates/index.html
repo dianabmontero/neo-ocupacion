@@ -912,17 +912,18 @@
       </div>`).join('');
 
       // Legend
+      const cap = data.capacity;
       const TIERS = [
-        ['Baja','≤30%','$1.000'],
-        ['Media baja','≤45%','$2.000'],
-        ['Media','≤60%','$3.000'],
-        ['Media alta','≤90%','$4.000'],
-        ['Alta','>90%','$5.000'],
+        ['Baja',      '≤30%',  '$1.000', Math.floor(cap * 0.30)],
+        ['Media baja','≤45%',  '$2.000', Math.floor(cap * 0.45)],
+        ['Media',     '≤60%',  '$3.000', Math.floor(cap * 0.60)],
+        ['Media alta','≤90%',  '$4.000', Math.floor(cap * 0.90)],
+        ['Alta',      '>90%',  '$5.000', null],
       ];
-      document.getElementById('legendEl').innerHTML = TIERS.map(([t,p,pr]) =>
+      document.getElementById('legendEl').innerHTML = TIERS.map(([t,p,pr,maxP]) =>
         `<div class="legend-chip">
           <div class="legend-dot" style="background:${TIER_COLORS[t]}"></div>
-          ${t} · ${p} · ${pr}
+          ${t} · ${p} · ${pr} · <span style="color:var(--text-secondary)">${maxP !== null ? '≤' + maxP + ' pers.' : '>' + Math.floor(cap*0.90) + ' pers.'}</span>
         </div>`).join('');
 
       renderLiveCard(data);
@@ -966,7 +967,7 @@
       const beLabel = isTransition ? teNext.label : te.label;
       const be = TIER_BADGE[beLabel] || 'badge-nodata';
 
-      document.getElementById('liveHour').textContent    = `${String(hNum).padStart(2,'0')}:${String(data.current_minute).padStart(2,'0')}`;
+      document.getElementById('liveHour').textContent    = `${String(data.current_hour).padStart(2,'0')}:${String(data.current_minute).padStart(2,'0')}`;
       document.getElementById('liveCount').textContent   = lastRow.count;
       document.getElementById('liveTier').innerHTML      = `<span class="badge ${bc}">${tr.label}</span> <span style="color:var(--text-muted)">${lastRow.pct}%</span>`;
       document.getElementById('liveExpTier').innerHTML   = `<span class="badge ${be}">${beLabel}</span>${isTransition ? ' <span style="color:var(--text-muted);font-size:11px">(hora sig.)</span>' : ''}`;
