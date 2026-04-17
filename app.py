@@ -126,6 +126,8 @@ def process_excel(file_bytes, capacity):
         })
 
     day_of_week = df['_dt'].dt.dayofweek.iloc[0]  # 0=Mon … 6=Sun
+    last_event = df['_dt'].max()
+    current_minute = int(last_event.minute)
 
     return {
         "date": date_str,
@@ -133,6 +135,8 @@ def process_excel(file_bytes, capacity):
         "capacity": capacity,
         "total_events": len(df),
         "ignored_events": ignored,
+        "current_minute": current_minute,
+        "current_hour": int(last_event.hour),
         "sede": (df["Sede de origen"].dropna().iloc[0]
                  if "Sede de origen" in df.columns and not df["Sede de origen"].dropna().empty
                  else "NEO"),

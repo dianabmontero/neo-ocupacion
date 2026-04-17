@@ -582,10 +582,54 @@
       <!-- Tab: Precios -->
       <div id="tab-precios" class="tab-panel active">
 
+        <!-- Live current hour card -->
+        <div id="liveCard" style="
+          background: var(--surface2);
+          border: 1px solid var(--border-light);
+          border-radius: 16px;
+          padding: 20px 24px;
+          margin-bottom: 20px;
+          display: none;
+        ">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+            <span style="width:8px;height:8px;border-radius:50%;background:#4ade80;display:inline-block;box-shadow:0 0 6px #4ade80"></span>
+            <span style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)">Hora actual — Chile</span>
+            <span id="liveTransitionBadge" style="display:none;margin-left:8px;background:#f9731622;color:#f97316;border:1px solid #f9731644;border-radius:99px;font-size:11px;font-weight:700;padding:2px 10px">⏳ Transición</span>
+          </div>
+          <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-end">
+            <div>
+              <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">Hora</div>
+              <div id="liveHour" style="font-family:'Sora',sans-serif;font-size:28px;font-weight:700"></div>
+            </div>
+            <div>
+              <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">Personas</div>
+              <div id="liveCount" style="font-family:'Sora',sans-serif;font-size:28px;font-weight:700"></div>
+            </div>
+            <div>
+              <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">Ocupación real</div>
+              <div id="liveTier" style="font-size:14px;margin-top:2px"></div>
+            </div>
+            <div>
+              <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">Nivel esperado</div>
+              <div id="liveExpTier" style="font-size:14px;margin-top:2px"></div>
+            </div>
+            <div style="margin-left:auto;text-align:right">
+              <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">💰 Precio Pase</div>
+              <div id="liveFinal" style="font-family:'Sora',sans-serif;font-size:32px;font-weight:700;color:var(--blue-300)"></div>
+              <div id="liveReserva" style="font-size:13px;color:#a78bfa;margin-top:2px"></div>
+            </div>
+            <div style="text-align:center">
+              <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">Personitas</div>
+              <div id="livePersonitas" style="font-size:28px"></div>
+            </div>
+          </div>
+        </div>
+
         <div class="formula-card">
           <strong>Lógica de Precio Final (β ponderación)</strong><br>
-          Real <strong>≥</strong> Esperada → <span class="formula-pill">β = 1</span> → Precio Final = Precio Real &nbsp;·&nbsp;
-          Real <strong>&lt;</strong> Esperada → <span class="formula-pill">β = 0.6</span> → 0.6 × Real + 0.4 × Esperado
+          Real <strong>≤</strong> Esperada → <span class="formula-pill">β = 1</span> → Precio Final = Precio Real &nbsp;·&nbsp;
+          Real <strong>&gt;</strong> Esperada → <span class="formula-pill">β = 0.6</span> → 0.6 × Real + 0.4 × Esperado<br>
+          <span style="color:var(--text-muted);font-size:12px">Transición (min ≥45): α=0.6 × Precio Real + 0.4 × Precio Esperado <em>hora siguiente</em></span>
         </div>
 
         <div class="hint-row">
@@ -595,11 +639,6 @@
         </div>
 
         <div class="legend" id="legendEl"></div>
-
-        <div class="chart-card">
-          <div class="section-title">Precio Final por hora</div>
-          <canvas id="priceChart" height="75"></canvas>
-        </div>
 
         <div class="table-wrap">
           <table>
@@ -886,25 +925,90 @@
           ${t} · ${p} · ${pr}
         </div>`).join('');
 
+      renderLiveCard(data);
       renderTable(data);
       renderFlowCharts(data);
       renderPriceChart();
       renderAsistencia(data);
     }
 
+    function calcTransition(prReal, expNext) {
+      // Transición: α=0.6 fijo
+      if (prReal === null) return null;
+      if (expNext === null) return prReal;
+      return Math.round(0.6 * prReal + 0.4 * expNext);
+    }
+
+    function renderLiveCard(data) {
+      const card = document.getElementById('liveCard');
+      const isTransition = data.current_minute >= 45;
+      const lastRow = data.hourly[data.hourly.length - 1];
+      if (!lastRow) return;
+
+      const hNum = parseInt(lastRow.hour);
+      const tr   = getTier(lastRow.pct);
+
+      // Expected for current hour
+      const expPct     = defExp(hNum, dow);
+      const te         = getTier(expPct);
+      // Expected for next hour (transition)
+      const expNextPct = defExp(hNum + 1, dow);
+      const teNext     = getTier(expNextPct);
+
+      let fin;
+      if (isTransition) {
+        fin = calcTransition(tr.price, teNext.price);
+      } else {
+        fin = calcFinal(tr.price, te.price, tr.label, te.label);
+      }
+
+      const bc = TIER_BADGE[tr.label] || 'badge-nodata';
+      const beLabel = isTransition ? teNext.label : te.label;
+      const be = TIER_BADGE[beLabel] || 'badge-nodata';
+
+      document.getElementById('liveHour').textContent    = `${String(hNum).padStart(2,'0')}:${String(data.current_minute).padStart(2,'0')}`;
+      document.getElementById('liveCount').textContent   = lastRow.count;
+      document.getElementById('liveTier').innerHTML      = `<span class="badge ${bc}">${tr.label}</span> <span style="color:var(--text-muted)">${lastRow.pct}%</span>`;
+      document.getElementById('liveExpTier').innerHTML   = `<span class="badge ${be}">${beLabel}</span>${isTransition ? ' <span style="color:var(--text-muted);font-size:11px">(hora sig.)</span>' : ''}`;
+      document.getElementById('liveFinal').textContent   = fin !== null ? '$' + fin.toLocaleString('es-CL') : '—';
+      document.getElementById('liveReserva').textContent = fin !== null ? '🤸 Reserva: $' + Math.round(fin * 1.30).toLocaleString('es-CL') : '';
+      document.getElementById('livePersonitas').textContent = getPersonitas(tr.label);
+      document.getElementById('liveTransitionBadge').style.display = isTransition ? 'inline-flex' : 'none';
+      card.style.display = 'block';
+    }
+
+    function rowCalc(h, i, isLast, data) {
+      const hNum = parseInt(h.hour);
+      const exp  = defExp(hNum, dow);
+      const tr   = getTier(h.pct);
+      const te   = getTier(exp);
+      const isTransition = isLast && data.current_minute >= 45;
+
+      let fin, beta, betaLabel;
+      if (isTransition) {
+        const expNextPct = defExp(hNum + 1, dow);
+        const teNext     = getTier(expNextPct);
+        fin = calcTransition(tr.price, teNext.price);
+        beta = 0.6; betaLabel = 'α=0.6';
+      } else {
+        beta = (TIER_RANK[tr.label] ?? 0) <= (TIER_RANK[te.label] ?? 0) ? 1 : 0.6;
+        fin  = calcFinal(tr.price, te.price, tr.label, te.label);
+        betaLabel = `β=${beta}`;
+      }
+      return { tr, te, fin, beta, betaLabel, exp, isTransition };
+    }
+
     function renderTable(data) {
+      const lastIdx = data.hourly.length - 1;
       document.getElementById('tableBody').innerHTML = data.hourly.map((h,i) => {
-        const hNum  = parseInt(h.hour);
-        const exp   = defExp(hNum, dow);
-        const tr    = getTier(h.pct);
-        const te    = getTier(exp);
-        const beta  = (TIER_RANK[tr.label] ?? 0) <= (TIER_RANK[te.label] ?? 0) ? 1 : 0.6;
-        const fin   = calcFinal(tr.price, te.price, tr.label, te.label);
-        const bc    = TIER_BADGE[tr.label] || 'badge-nodata';
-        const be    = TIER_BADGE[te.label] || 'badge-nodata';
-        const bb    = beta === 1 ? 'beta-1' : 'beta-06';
-        return `<tr>
-          <td class="td-hour">${h.hour}</td>
+        const isLast = i === lastIdx;
+        const { tr, te, fin, beta, betaLabel, exp, isTransition } = rowCalc(h, i, isLast, data);
+        const bc = TIER_BADGE[tr.label] || 'badge-nodata';
+        const be = TIER_BADGE[te.label] || 'badge-nodata';
+        const bb = beta === 1 ? 'beta-1' : 'beta-06';
+        const rowStyle = isLast ? 'background:var(--surface2)' : '';
+        return `<tr style="${rowStyle}">
+          <td class="td-hour">${h.hour}${isLast ? ' <span style="color:#4ade80;font-size:10px">●</span>' : ''}</td>
           <td>${h.count}</td>
           <td class="td-pct">${h.pct}%</td>
           <td><span class="badge ${bc}">${tr.label}</span></td>
@@ -913,9 +1017,9 @@
             value="${exp}" data-row="${i}"
             onchange="onExpChange(${i},this.value)"
             oninput="onExpChange(${i},this.value)" /></td>
-          <td id="te-${i}"><span class="badge ${be}">${te.label}</span></td>
+          <td id="te-${i}"><span class="badge ${be}">${te.label}</span>${isTransition ? '<span style="color:var(--text-muted);font-size:10px;margin-left:4px">sig.</span>' : ''}</td>
           <td id="pe-${i}">${fmtPricePlain(te.price)}</td>
-          <td id="bt-${i}"><span class="badge ${bb}">β=${beta}</span></td>
+          <td id="bt-${i}"><span class="badge ${bb}">${betaLabel}</span></td>
           <td id="pf-${i}" class="td-final">${fmtPrice(fin)}</td>
           <td id="rv-${i}" style="color:#a78bfa;font-weight:600">${fmtReserva(fin)}</td>
           <td id="pp-${i}" style="font-size:16px">${getPersonitas(tr.label)}</td>
@@ -929,15 +1033,13 @@
       const h = chartData.hourly[i];
       const ep = parseFloat(val);
       if (isNaN(ep) || ep < 0 || ep > 100) return;
-      const tr = getTier(h.pct);
-      const te = getTier(ep);
-      const beta = (TIER_RANK[tr.label] ?? 0) <= (TIER_RANK[te.label] ?? 0) ? 1 : 0.6;
-      const fin  = calcFinal(tr.price, te.price, tr.label, te.label);
-      const be   = TIER_BADGE[te.label] || 'badge-nodata';
-      const bb   = beta === 1 ? 'beta-1' : 'beta-06';
+      const isLast = i === chartData.hourly.length - 1;
+      const { tr, te, fin, beta, betaLabel } = rowCalc(h, i, isLast, chartData);
+      const be = TIER_BADGE[te.label] || 'badge-nodata';
+      const bb = beta === 1 ? 'beta-1' : 'beta-06';
       document.getElementById(`te-${i}`).innerHTML = `<span class="badge ${be}">${te.label}</span>`;
       document.getElementById(`pe-${i}`).textContent = fmtPricePlain(te.price);
-      document.getElementById(`bt-${i}`).innerHTML  = `<span class="badge ${bb}">β=${beta}</span>`;
+      document.getElementById(`bt-${i}`).innerHTML  = `<span class="badge ${bb}">${betaLabel}</span>`;
       document.getElementById(`pf-${i}`).innerHTML  = fmtPrice(fin);
       document.getElementById(`rv-${i}`).textContent = fmtReserva(fin);
       renderPriceChart();
@@ -953,12 +1055,11 @@
     }
 
     function getPriceData() {
+      const lastIdx = chartData.hourly.length - 1;
       return chartData.hourly.map((h,i) => {
-        const inp = document.querySelector(`.exp-input[data-row="${i}"]`);
-        const ep  = inp ? parseFloat(inp.value) : defExp(parseInt(h.hour), dow);
-        const tr  = getTier(h.pct);
-        const te  = getTier(ep);
-        return { fin: calcFinal(tr.price, te.price, tr.label, te.label), color: TIER_COLORS[tr.label] };
+        const isLast = i === lastIdx;
+        const { tr, fin } = rowCalc(h, i, isLast, chartData);
+        return { fin, color: TIER_COLORS[tr.label] };
       });
     }
 
