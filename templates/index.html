@@ -631,6 +631,18 @@
           Analizar
         </button>
       </div>
+
+      <!-- ── Live EVO sync ────────────────────────────────────────────── -->
+      <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border-light);display:flex;gap:14px;align-items:center;flex-wrap:wrap;">
+        <button class="btn" id="evoBtn" onclick="fetchFromEvo()" style="background:var(--accent);">
+          🔄 Traer de EVO
+        </button>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text-secondary);">
+          <input type="checkbox" id="autoRefreshToggle" onchange="toggleAutoRefresh()" style="accent-color:var(--accent);width:16px;height:16px;">
+          <span>Auto-refresh cada 5 min</span>
+        </label>
+        <span id="evoStatus" style="margin-left:auto;font-size:12px;color:var(--text-muted);"></span>
+      </div>
       <div class="error-msg" id="errorMsg"></div>
     </div>
 
@@ -922,6 +934,14 @@
     }
     applyTheme(localStorage.getItem('neo-theme') === 'light');
 
+    // Restore auto-refresh preference (runs once on page load)
+    window.addEventListener('DOMContentLoaded', () => {
+      if (localStorage.getItem('neo-auto-refresh') === '1') {
+        document.getElementById('autoRefreshToggle').checked = true;
+        toggleAutoRefresh();
+      }
+    });
+
     function switchTab(name) {
       document.querySelectorAll('.tab-btn').forEach((b,i)=>{
         b.classList.toggle('active', TAB_NAMES[i] === name);
@@ -959,6 +979,50 @@
     function showErr(msg) {
       const el = document.getElementById('errorMsg');
       el.textContent = msg; el.style.display = 'block';
+    }
+
+    // ── Fetch from EVO live ───────────────────────────────────────────────
+    let autoRefreshInterval = null;
+
+    async function fetchFromEvo() {
+      const cap    = document.getElementById('capacityInput').value || 85;
+      const btn    = document.getElementById('evoBtn');
+      const err    = document.getElementById('errorMsg');
+      const status = document.getElementById('evoStatus');
+      err.style.display = 'none';
+      btn.disabled = true;
+      const originalHtml = btn.innerHTML;
+      btn.innerHTML = '<div class="spinner"></div> Sincronizando…';
+      try {
+        const res = await fetch('/fetch-evo', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ hours: 24, capacity: parseInt(cap) || 85 }),
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) { showErr(data.error || 'Error al sincronizar con EVO'); return; }
+        chartData = data; dow = data.day_of_week || 0;
+        render(data);
+        const now = new Date().toLocaleTimeString('es-CL', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+        status.textContent = `✓ Última sync: ${now}`;
+      } catch(e) { showErr('Error de red EVO: ' + e.message); }
+      finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+      }
+    }
+
+    function toggleAutoRefresh() {
+      const toggle = document.getElementById('autoRefreshToggle');
+      if (toggle.checked) {
+        autoRefreshInterval = setInterval(fetchFromEvo, 5 * 60 * 1000);
+        localStorage.setItem('neo-auto-refresh', '1');
+        fetchFromEvo(); // sync immediately
+      } else {
+        if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+        localStorage.removeItem('neo-auto-refresh');
+      }
     }
 
     // ── Render ────────────────────────────────────────────────────────────

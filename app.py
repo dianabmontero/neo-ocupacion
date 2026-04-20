@@ -1,7 +1,16 @@
 from flask import Flask, render_template, request, jsonify
 import pandas as pd
 import json
+import os
 from io import BytesIO
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+import evo_client
 
 app = Flask(__name__)
 
@@ -29,7 +38,7 @@ def get_tier(pct):
         return PRICE_TIERS[2]
     return PRICE_TIERS[1]
 
-def process_excel(file_bytes, capacity):
+def process_excel(file_bytes, capacity, sede_filter="Interlaken"):
     df = pd.read_excel(BytesIO(file_bytes))
     df.columns = df.columns.str.strip()
 
@@ -40,12 +49,20 @@ def process_excel(file_bytes, capacity):
     if not date_col or not action_col:
         return None, "No se encontraron columnas de fecha/hora o acción en el archivo."
 
-    # Filter Interlaken only (when molinete/torniquete column exists)
+    # Filter by sede (solo para el upload manual que trae multi-sede).
+    # Si sede_filter=None, no filtra — útil cuando la fuente ya filtra
+    # por DNS/token (p.ej. /fetch-evo).
     molinete_col = next((c for c in df.columns if 'molinete' in c.lower() or 'torniquete' in c.lower()), None)
-    if molinete_col:
-        df = df[df[molinete_col].astype(str).str.contains('Interlaken', case=False, na=False)].copy()
+    if molinete_col and sede_filter:
+        df = df[df[molinete_col].astype(str).str.contains(sede_filter, case=False, na=False)].copy()
 
-    df['_dt'] = pd.to_datetime(df[date_col], dayfirst=True, errors='coerce')
+    # EVO devuelve ISO 8601 (2026-04-20T12:05:38), Excel manual viene dd/mm/yyyy.
+    # Intentamos ISO primero; si falla, caemos a dayfirst para el Excel manual.
+    iso_parsed = pd.to_datetime(df[date_col], format='ISO8601', errors='coerce')
+    if iso_parsed.notna().all():
+        df['_dt'] = iso_parsed
+    else:
+        df['_dt'] = pd.to_datetime(df[date_col], dayfirst=True, errors='coerce')
     df = df.dropna(subset=['_dt'])
     df = df.sort_values('_dt')
 
@@ -221,6 +238,60 @@ def upload_checkins():
     if err:
         return jsonify({"error": err}), 400
     return jsonify(data)
+
+
+@app.route("/fetch-evo", methods=["POST"])
+def fetch_evo():
+    """
+    Trae data en vivo desde EVO y la procesa con la misma lógica que /upload.
+    Body JSON: { "hours": 24, "capacity": 85, "sede": "Interlaken", "branch_id": null }
+    """
+    body = request.get_json(silent=True) or {}
+    hours = int(body.get("hours", 24))
+    capacity = int(body.get("capacity", CAPACITY_DEFAULT))
+    # Default basado en lo que el DNS actual expone. Para otras sedes,
+    # enviar "sede" en el body o configurar EVO_SEDE_NAME en env vars.
+    sede = body.get("sede") or os.environ.get("EVO_SEDE_NAME", "Plaza Vespucio")
+    branch_id = body.get("branch_id")
+
+    if capacity <= 0:
+        return jsonify({"error": "La capacidad debe ser mayor a 0"}), 400
+    if hours <= 0 or hours > 168:
+        return jsonify({"error": "hours debe estar entre 1 y 168"}), 400
+
+    try:
+        xlsx_bytes = evo_client.fetch_and_build_excel_bytes(
+            hours=hours, sede_name=sede, branch_id=branch_id
+        )
+    except evo_client.EvoAuthError as e:
+        return jsonify({"error": f"Credenciales EVO inválidas: {e}"}), 401
+    except evo_client.EvoApiError as e:
+        return jsonify({"error": f"EVO no respondió: {e}"}), 502
+
+    # EVO ya filtra por DNS/token (un DNS = una sede), así que no necesitamos
+    # el filtro de sede_filter acá. Pasamos None para procesar toda la data.
+    data, err = process_excel(xlsx_bytes, capacity, sede_filter=None)
+    if err:
+        return jsonify({"error": err}), 400
+    data["source"] = "evo-live"
+    return jsonify(data)
+
+
+@app.route("/evo-health")
+def evo_health():
+    """Prueba rápida para verificar que las credenciales EVO están configuradas."""
+    try:
+        branches = evo_client.fetch_branches()
+        return jsonify({
+            "ok": True,
+            "branches_count": len(branches),
+            "sample": [{"idBranch": b.get("idBranch"), "name": b.get("name")}
+                       for b in branches[:3]],
+        })
+    except evo_client.EvoAuthError as e:
+        return jsonify({"ok": False, "error": str(e), "kind": "auth"}), 401
+    except evo_client.EvoApiError as e:
+        return jsonify({"ok": False, "error": str(e), "kind": "api"}), 502
 
 
 if __name__ == "__main__":
