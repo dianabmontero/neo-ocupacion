@@ -68,6 +68,13 @@ def _headers() -> Dict[str, str]:
     }
 
 
+# Tamaño de página para /api/v1/entries. EVO devuelve 50 por default si no se
+# especifica `take`; con 500 cubre cómodo un día completo (gimnasio típico:
+# 200-400 eventos/día). Si algún día se excede, el while loop pagina.
+_PAGE_SIZE = 500
+_MAX_PAGES = 20  # safety cap: 10.000 eventos
+
+
 def fetch_entries(
     date_start: datetime,
     date_end: datetime,
@@ -76,48 +83,77 @@ def fetch_entries(
     timeout: int = 30,
 ) -> List[Dict]:
     """
-    GET /api/v1/entries?registerDateStart=...&registerDateEnd=...
-    Devuelve la lista de eventos filtrados por acción.
+    GET /api/v1/entries?registerDateStart=...&registerDateEnd=...&take=...&skip=...
+    Pagina automáticamente hasta consumir todo el rango.
     """
     if actions is None:
         actions = ENTRY_ACTIONS
 
-    params = {
-        "registerDateStart": date_start.strftime("%Y-%m-%dT%H:%M:%S"),
-        "registerDateEnd": date_end.strftime("%Y-%m-%dT%H:%M:%S"),
-    }
-    if member_id is not None:
-        params["idMember"] = member_id
-
     url = f"{EVO_BASE_URL}/api/v1/entries"
-    try:
-        r = requests.get(url, headers=_headers(), params=params, timeout=timeout)
-    except requests.RequestException as e:
-        raise EvoApiError(f"Fallo de red contra EVO: {e}") from e
+    all_entries: List[Dict] = []
+    skip = 0
+    pages = 0
 
-    if r.status_code == 401 or r.status_code == 403:
-        raise EvoAuthError(
-            f"EVO rechazó las credenciales (HTTP {r.status_code}). "
-            "Verifica EVO_USERNAME / EVO_PASSWORD."
-        )
-    if not r.ok:
-        raise EvoApiError(f"EVO devolvió HTTP {r.status_code}: {r.text[:300]}")
+    while pages < _MAX_PAGES:
+        params = {
+            "registerDateStart": date_start.strftime("%Y-%m-%dT%H:%M:%S"),
+            "registerDateEnd": date_end.strftime("%Y-%m-%dT%H:%M:%S"),
+            "take": _PAGE_SIZE,
+            "skip": skip,
+        }
+        if member_id is not None:
+            params["idMember"] = member_id
 
-    try:
-        data = r.json()
-    except ValueError as e:
-        raise EvoApiError(f"Respuesta no-JSON de EVO: {e}") from e
+        try:
+            r = requests.get(url, headers=_headers(), params=params, timeout=timeout)
+        except requests.RequestException as e:
+            raise EvoApiError(f"Fallo de red contra EVO: {e}") from e
 
-    if not isinstance(data, list):
-        # EVO a veces devuelve {errors: [...]} en 200; tratamos como error.
-        raise EvoApiError(f"Respuesta inesperada de EVO: {str(data)[:300]}")
+        if r.status_code in (401, 403):
+            raise EvoAuthError(
+                f"EVO rechazó las credenciales (HTTP {r.status_code}). "
+                "Verifica EVO_USERNAME / EVO_PASSWORD."
+            )
+        if not r.ok:
+            raise EvoApiError(f"EVO devolvió HTTP {r.status_code}: {r.text[:300]}")
 
-    return [e for e in data if e.get("entryAction") in actions]
+        try:
+            data = r.json()
+        except ValueError as e:
+            raise EvoApiError(f"Respuesta no-JSON de EVO: {e}") from e
+
+        if not isinstance(data, list):
+            raise EvoApiError(f"Respuesta inesperada de EVO: {str(data)[:300]}")
+
+        if not data:
+            break  # no hay más páginas
+
+        all_entries.extend(data)
+        pages += 1
+        if len(data) < _PAGE_SIZE:
+            break  # última página
+        skip += _PAGE_SIZE
+
+    return [e for e in all_entries if e.get("entryAction") in actions]
 
 
 def fetch_branches() -> List[Dict]:
     """GET /api/v1/configuration  — lista de sedes con idBranch/name."""
     url = f"{EVO_BASE_URL}/api/v1/configuration"
+    r = requests.get(url, headers=_headers(), timeout=30)
+    if not r.ok:
+        raise EvoApiError(f"EVO devolvió HTTP {r.status_code}: {r.text[:300]}")
+    return r.json()
+
+
+def fetch_occupation() -> List[Dict]:
+    """
+    GET /api/v1/configuration/occupation — ocupación real-time autoritativa de EVO.
+    Devuelve lista de {idBranch, name, occupation, maxOccupation, qtyMinutesOut}.
+    Esta es la fuente de verdad para "cuántos hay adentro AHORA" — no depende
+    de replay de eventos y matchea exactamente con lo que ve EVO en su panel.
+    """
+    url = f"{EVO_BASE_URL}/api/v1/configuration/occupation"
     r = requests.get(url, headers=_headers(), timeout=30)
     if not r.ok:
         raise EvoApiError(f"EVO devolvió HTTP {r.status_code}: {r.text[:300]}")
@@ -195,5 +231,27 @@ def fetch_and_build_excel_bytes(
     end = datetime.now()
     start = end - timedelta(hours=hours)
     entries = fetch_entries(start, end)
+    df = entries_to_dataframe(entries, sede_name=sede_name, branch_filter=branch_id)
+    return dataframe_to_excel_bytes(df)
+
+
+def fetch_and_build_excel_bytes_from_today(
+    start_hour: int = 6,
+    sede_name: str = "Interlaken",
+    branch_id: Optional[int] = None,
+) -> bytes:
+    """
+    Trae eventos desde `start_hour` del día actual hasta ahora.
+    Arranca en el horario de apertura del gym (default 6am) para que la
+    deduplicación por persona comience con un estado limpio (el gimnasio
+    está cerrado durante la noche, por lo tanto nadie "estaba adentro antes").
+    Si la hora actual es anterior a start_hour (p.ej. 3am), usa start_hour
+    del día anterior.
+    """
+    now = datetime.now()
+    start = now.replace(hour=start_hour, minute=0, second=0, microsecond=0)
+    if now < start:
+        start -= timedelta(days=1)
+    entries = fetch_entries(start, now)
     df = entries_to_dataframe(entries, sede_name=sede_name, branch_filter=branch_id)
     return dataframe_to_excel_bytes(df)

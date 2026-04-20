@@ -1041,8 +1041,18 @@
       const lastRow = data.hourly[data.hourly.length - 1];
       if (!lastRow) return;
 
+      // Si EVO nos dio el occupation real-time, ese es el número autoritativo
+      // (coincide con lo que ve EVO en su panel). El replay por eventos puede
+      // diferir ±unos pocos por lag de replicación de EVO.
+      let liveCount = lastRow.count;
+      let livePct   = lastRow.pct;
+      if (typeof data.live_occupation === 'number') {
+        liveCount = data.live_occupation;
+        livePct   = Math.round((liveCount / data.capacity) * 1000) / 10;
+      }
+
       const hNum = parseInt(lastRow.hour);
-      const tr   = getTier(lastRow.pct);
+      const tr   = getTier(livePct);
 
       // Expected for current hour
       const expPct     = defExp(hNum, dow);
@@ -1063,8 +1073,8 @@
       const be = TIER_BADGE[beLabel] || 'badge-nodata';
 
       document.getElementById('liveHour').textContent    = `${String(data.current_hour).padStart(2,'0')}:${String(data.current_minute).padStart(2,'0')}`;
-      document.getElementById('liveCount').textContent   = lastRow.count;
-      document.getElementById('liveTier').innerHTML      = `<span class="badge ${bc}">${tr.label}</span> <span style="color:var(--text-muted)">${lastRow.pct}%</span>`;
+      document.getElementById('liveCount').textContent   = liveCount;
+      document.getElementById('liveTier').innerHTML      = `<span class="badge ${bc}">${tr.label}</span> <span style="color:var(--text-muted)">${livePct}%</span>`;
       document.getElementById('liveExpTier').innerHTML   = `<span class="badge ${be}">${beLabel}</span>${isTransition ? ' <span style="color:var(--text-muted);font-size:11px">(hora sig.)</span>' : ''}`;
       document.getElementById('liveFinal').textContent   = fin !== null ? '$' + fin.toLocaleString('es-CL') : '—';
       document.getElementById('liveReserva').textContent = fin !== null ? '🤸 Reserva: $' + Math.round(fin * 1.30).toLocaleString('es-CL') : '';

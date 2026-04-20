@@ -38,7 +38,7 @@ def get_tier(pct):
         return PRICE_TIERS[2]
     return PRICE_TIERS[1]
 
-def process_excel(file_bytes, capacity, sede_filter="Interlaken"):
+def process_excel(file_bytes, capacity, sede_filter="Interlaken", display_start_hour=None):
     df = pd.read_excel(BytesIO(file_bytes))
     df.columns = df.columns.str.strip()
 
@@ -110,8 +110,10 @@ def process_excel(file_bytes, capacity, sede_filter="Interlaken"):
 
     df['_running'] = df['_checkin'].cumsum().clip(lower=0)
 
-    # Build hourly snapshots in Chile time
-    min_hour = df['_dt'].dt.hour.min()
+    # Build hourly snapshots in Chile time.
+    # Si display_start_hour se pasa, fuerza el inicio ahí aunque no haya eventos.
+    data_min_hour = df['_dt'].dt.hour.min()
+    min_hour = display_start_hour if display_start_hour is not None else int(data_min_hour)
     max_hour = df['_dt'].dt.hour.max()
     date_str = df['_dt'].dt.date.iloc[0].strftime('%d/%m/%Y')
 
@@ -244,10 +246,15 @@ def upload_checkins():
 def fetch_evo():
     """
     Trae data en vivo desde EVO y la procesa con la misma lógica que /upload.
-    Body JSON: { "hours": 24, "capacity": 85, "sede": "Interlaken", "branch_id": null }
+    Body JSON: {
+      "start_hour": 6,        # hora de apertura del gym (default 6)
+      "capacity": 85,
+      "sede": "Plaza Vespucio",
+      "branch_id": null
+    }
     """
     body = request.get_json(silent=True) or {}
-    hours = int(body.get("hours", 24))
+    start_hour = int(body.get("start_hour", 6))
     capacity = int(body.get("capacity", CAPACITY_DEFAULT))
     # Default basado en lo que el DNS actual expone. Para otras sedes,
     # enviar "sede" en el body o configurar EVO_SEDE_NAME en env vars.
@@ -256,13 +263,16 @@ def fetch_evo():
 
     if capacity <= 0:
         return jsonify({"error": "La capacidad debe ser mayor a 0"}), 400
-    if hours <= 0 or hours > 168:
-        return jsonify({"error": "hours debe estar entre 1 y 168"}), 400
+    if start_hour < 0 or start_hour > 23:
+        return jsonify({"error": "start_hour debe estar entre 0 y 23"}), 400
 
     try:
-        xlsx_bytes = evo_client.fetch_and_build_excel_bytes(
-            hours=hours, sede_name=sede, branch_id=branch_id
+        # Trae eventos desde start_hour de hoy (default 6am)
+        xlsx_bytes = evo_client.fetch_and_build_excel_bytes_from_today(
+            start_hour=start_hour, sede_name=sede, branch_id=branch_id
         )
+        # Cuenta real-time autoritativa de EVO (no depende de replay de eventos)
+        occupation = evo_client.fetch_occupation()
     except evo_client.EvoAuthError as e:
         return jsonify({"error": f"Credenciales EVO inválidas: {e}"}), 401
     except evo_client.EvoApiError as e:
@@ -270,10 +280,28 @@ def fetch_evo():
 
     # EVO ya filtra por DNS/token (un DNS = una sede), así que no necesitamos
     # el filtro de sede_filter acá. Pasamos None para procesar toda la data.
-    data, err = process_excel(xlsx_bytes, capacity, sede_filter=None)
+    data, err = process_excel(
+        xlsx_bytes, capacity,
+        sede_filter=None,
+        display_start_hour=start_hour,
+    )
     if err:
         return jsonify({"error": err}), 400
     data["source"] = "evo-live"
+
+    # Override del contador actual con la fuente de verdad de EVO.
+    # Busca la sede correcta: si hay branch_id, filtra; si no, usa la primera.
+    if occupation:
+        if branch_id is not None:
+            branch_occ = next(
+                (o for o in occupation if o.get("idBranch") == branch_id),
+                occupation[0],
+            )
+        else:
+            branch_occ = occupation[0]
+        data["live_occupation"] = branch_occ.get("occupation")
+        data["live_max_occupation"] = branch_occ.get("maxOccupation")
+
     return jsonify(data)
 
 
