@@ -797,7 +797,7 @@
     // ── Design tokens ──────────────────────────────────────────────────────
     const TIER_COLORS = {
       'Baja':       '#22c55e',
-      'Media baja': '#86efac',
+      'Medio bajo': '#86efac',
       'Media':      '#facc15',
       'Media alta': '#f97316',
       'Alta':       '#ef4444',
@@ -805,33 +805,33 @@
     };
     const TIER_BADGE = {
       'Baja':       'badge-baja',
-      'Media baja': 'badge-medio-bajo',
+      'Medio bajo': 'badge-medio-bajo',
       'Media':      'badge-media',
       'Media alta': 'badge-media-alta',
       'Alta':       'badge-alta',
       'No hay data':'badge-nodata',
     };
     // Tier rank for β comparison (low < low_medium < medium < medium_high < high)
-    const TIER_RANK = { 'Baja': 0, 'Media baja': 1, 'Media': 2, 'Media alta': 3, 'Alta': 4 };
+    const TIER_RANK = { 'Baja': 0, 'Medio bajo': 1, 'Media': 2, 'Media alta': 3, 'Alta': 4 };
 
     // Ocup Esperada (Lunes=0 … Domingo=6)
-    // Midpoints: Baja=15, MediaBaja=37, Media=52, MediaAlta=75, Alta=95
+    // Midpoints: Baja=15, MedioBajo=37, Media=52, MediaAlta=75, Alta=95
     const CHILE = {
-       6:[75,75,75,75,52,15,15],
-       7:[95,95,95,95,75,15,15],
-       8:[95,95,95,75,75,15,15],
-       9:[52,75,52,52,52,75,52],
-      10:[52,52,75,52,52,75,52],
-      11:[52,52,52,52,52,75,75],
-      12:[52,52,52,52,52,75,75],
-      13:[52,75,52,52,52,37,37],
-      14:[37,37,37,37,37,15,15],
-      15:[52,52,37,37,52,15,15],
-      16:[52,52,52,52,52,15,15],
-      17:[75,75,75,52,52,15,15],
-      18:[95,95,95,75,52,15,15],
-      19:[95,95,95,75,52,15,15],
-      20:[52,75,52,52,37,15,15],
+       6:[52,75,52,52,37,15,15],
+       7:[75,95,75,75,52,15,15],
+       8:[75,75,75,75,52,15,15],
+       9:[37,52,37,37,37,52,15],
+      10:[37,37,52,37,37,75,37],
+      11:[37,37,37,37,37,75,52],
+      12:[37,37,37,37,37,52,52],
+      13:[37,52,37,37,37,15,15],
+      14:[15,15,15,15,15,15,15],
+      15:[15,37,15,15,15,15,15],
+      16:[37,37,37,15,15,15,15],
+      17:[52,52,52,37,37,15,15],
+      18:[75,95,75,75,37,15,15],
+      19:[75,95,75,75,15,15,15],
+      20:[37,52,37,15,15,15,15],
       21:[15,15,15,15,15,15,15],
       22:[15,15,15,15,15,15,15],
     };
@@ -840,7 +840,7 @@
 
     function getPersonitas(label) {
       if (label === 'Baja')                           return '👤';
-      if (label === 'Media baja' || label === 'Media') return '👤👤';
+      if (label === 'Medio bajo' || label === 'Media') return '👤👤';
       if (label === 'Media alta' || label === 'Alta')  return '👤👤👤';
       return '—';
     }
@@ -855,7 +855,7 @@
       if (pct > 90)  return {label:'Alta',       price:5000, rank:4};
       if (pct > 60)  return {label:'Media alta', price:4000, rank:3};
       if (pct > 45)  return {label:'Media',      price:3000, rank:2};
-      if (pct > 30)  return {label:'Media baja', price:2000, rank:1};
+      if (pct > 30)  return {label:'Medio bajo', price:2000, rank:1};
       return              {label:'Baja',       price:1000, rank:0};
     }
 
@@ -886,23 +886,23 @@
     // Render Ocup Esperada static table
     (function renderEspTable() {
       const OCUP = [
-        [6,  'Media alta','Media alta','Media alta','Media alta','Media',    'Baja',      'Baja'],
-        [7,  'Alta',      'Alta',      'Alta',      'Alta',      'Media alta','Baja',     'Baja'],
-        [8,  'Alta',      'Alta',      'Alta',      'Media alta','Media alta','Baja',     'Baja'],
-        [9,  'Media',     'Media alta','Media',     'Media',     'Media',    'Media alta','Media'],
-        [10, 'Media',     'Media',     'Media alta','Media',     'Media',    'Media alta','Media'],
-        [11, 'Media',     'Media',     'Media',     'Media',     'Media',    'Media alta','Media alta'],
-        [12, 'Media',     'Media',     'Media',     'Media',     'Media',    'Media alta','Media alta'],
-        [13, 'Media',     'Media alta','Media',     'Media',     'Media',    'Media baja','Media baja'],
-        [14, 'Media baja','Media baja','Media baja','Media baja','Media baja','Baja',     'Baja'],
-        [15, 'Media',     'Media',     'Media baja','Media baja','Media',    'Baja',      'Baja'],
-        [16, 'Media',     'Media',     'Media',     'Media',     'Media',    'Baja',      'Baja'],
-        [17, 'Media alta','Media alta','Media alta','Media',     'Media',    'Baja',      'Baja'],
-        [18, 'Alta',      'Alta',      'Alta',      'Media alta','Media',    'Baja',      'Baja'],
-        [19, 'Alta',      'Alta',      'Alta',      'Media alta','Media',    'Baja',      'Baja'],
-        [20, 'Media',     'Media alta','Media',     'Media',     'Media baja','Baja',     'Baja'],
-        [21, 'Baja',      'Baja',      'Baja',      'Baja',      'Baja',     'Baja',      'Baja'],
-        [22, 'Baja',      'Baja',      'Baja',      'Baja',      'Baja',     'Baja',      'Baja'],
+        [6,  'Media',     'Media alta','Media',     'Media',     'Medio bajo','Baja',      'Baja'],
+        [7,  'Media alta','Alta',      'Media alta','Media alta','Media',     'Baja',      'Baja'],
+        [8,  'Media alta','Media alta','Media alta','Media alta','Media',     'Baja',      'Baja'],
+        [9,  'Medio bajo','Media',     'Medio bajo','Medio bajo','Medio bajo','Media',     'Baja'],
+        [10, 'Medio bajo','Medio bajo','Media',     'Medio bajo','Medio bajo','Media alta','Medio bajo'],
+        [11, 'Medio bajo','Medio bajo','Medio bajo','Medio bajo','Medio bajo','Media alta','Media'],
+        [12, 'Medio bajo','Medio bajo','Medio bajo','Medio bajo','Medio bajo','Media',     'Media'],
+        [13, 'Medio bajo','Media',     'Medio bajo','Medio bajo','Medio bajo','Baja',      'Baja'],
+        [14, 'Baja',      'Baja',      'Baja',      'Baja',      'Baja',      'Baja',      'Baja'],
+        [15, 'Baja',      'Medio bajo','Baja',      'Baja',      'Baja',      'Baja',      'Baja'],
+        [16, 'Medio bajo','Medio bajo','Medio bajo','Baja',      'Baja',      'Baja',      'Baja'],
+        [17, 'Media',     'Media',     'Media',     'Medio bajo','Medio bajo','Baja',      'Baja'],
+        [18, 'Media alta','Alta',      'Media alta','Media alta','Medio bajo','Baja',      'Baja'],
+        [19, 'Media alta','Alta',      'Media alta','Media alta','Baja',      'Baja',      'Baja'],
+        [20, 'Medio bajo','Media',     'Medio bajo','Baja',      'Baja',      'Baja',      'Baja'],
+        [21, 'Baja',      'Baja',      'Baja',      'Baja',      'Baja',      'Baja',      'Baja'],
+        [22, 'Baja',      'Baja',      'Baja',      'Baja',      'Baja',      'Baja',      'Baja'],
       ];
       document.getElementById('espTableBody').innerHTML = OCUP.map(row => {
         const [h, ...days] = row;
@@ -1011,7 +1011,7 @@
       const cap = data.capacity;
       const TIERS = [
         ['Baja',      '≤30%',  '$1.000', Math.floor(cap * 0.30)],
-        ['Media baja','≤45%',  '$2.000', Math.floor(cap * 0.45)],
+        ['Medio bajo','≤45%',  '$2.000', Math.floor(cap * 0.45)],
         ['Media',     '≤60%',  '$3.000', Math.floor(cap * 0.60)],
         ['Media alta','≤90%',  '$4.000', Math.floor(cap * 0.90)],
         ['Alta',      '>90%',  '$5.000', null],
