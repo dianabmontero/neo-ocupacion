@@ -864,8 +864,8 @@
       if (pe === null) return pr;
       const rankR = TIER_RANK[trLabel] ?? 0;
       const rankE = TIER_RANK[teLabel] ?? 0;
-      // β=1 when real ≤ esperado, β=0.6 when real > esperado
-      const b = rankR <= rankE ? 1 : 0.6;
+      // β=0.6 when real < esperado (gym más vacío → descuento), β=1 cuando real ≥ esperado
+      const b = rankR < rankE ? 0.6 : 1;
       return Math.round(b * pr + (1 - b) * pe);
     }
 
@@ -1097,7 +1097,7 @@
         fin = calcTransition(tr.price, teNext.price);
         beta = 0.6; betaLabel = 'α=0.6';
       } else {
-        beta = (TIER_RANK[tr.label] ?? 0) <= (TIER_RANK[te.label] ?? 0) ? 1 : 0.6;
+        beta = (TIER_RANK[tr.label] ?? 0) < (TIER_RANK[te.label] ?? 0) ? 0.6 : 1;
         fin  = calcFinal(tr.price, te.price, tr.label, te.label);
         betaLabel = `β=${beta}`;
       }
