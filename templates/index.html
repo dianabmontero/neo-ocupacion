@@ -788,6 +788,66 @@
             </table>
           </div>
         </div>
+
+        <!-- Calculadora de precios -->
+        <div class="chart-card">
+          <div class="section-title">🧮 Calculadora de precios</div>
+          <p style="margin:8px 0 18px 0;font-size:13px;color:var(--muted);">
+            Simulá cualquier escenario. Elegí día + hora (toma la Ocup. Esperada de la tabla automáticamente) e ingresá la Ocup. Real que querés probar.
+          </p>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;">
+            <div>
+              <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Día</label>
+              <select id="calc-day" style="margin-top:6px;background:var(--surface2);border:1px solid var(--border-light);border-radius:10px;padding:10px 14px;color:var(--text);font-family:'Wix Madefor Display',sans-serif;font-size:13px;width:100%;outline:none;">
+                <option value="0">Lunes</option>
+                <option value="1">Martes</option>
+                <option value="2">Miércoles</option>
+                <option value="3">Jueves</option>
+                <option value="4">Viernes</option>
+                <option value="5">Sábado</option>
+                <option value="6">Domingo</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Hora</label>
+              <select id="calc-hour" style="margin-top:6px;background:var(--surface2);border:1px solid var(--border-light);border-radius:10px;padding:10px 14px;color:var(--text);font-family:'Wix Madefor Display',sans-serif;font-size:13px;width:100%;outline:none;"></select>
+            </div>
+            <div>
+              <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Ocup. Real %</label>
+              <input id="calc-real" type="number" min="0" max="200" step="1" value="30" style="margin-top:6px;" />
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:22px;">
+            <div style="padding:14px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;">
+              <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Ocup. Esperada</div>
+              <div id="calc-exp" style="font-size:22px;font-weight:700;margin-top:6px;color:var(--white);">—</div>
+              <div id="calc-exp-tier" style="margin-top:6px;">—</div>
+            </div>
+            <div style="padding:14px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;">
+              <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Tier Real</div>
+              <div id="calc-real-pct" style="font-size:22px;font-weight:700;margin-top:6px;color:var(--white);">—</div>
+              <div id="calc-real-tier" style="margin-top:6px;">—</div>
+            </div>
+            <div style="padding:14px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;">
+              <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">β</div>
+              <div id="calc-beta" style="font-size:22px;font-weight:700;margin-top:6px;color:var(--white);">—</div>
+              <div id="calc-beta-reason" style="font-size:12px;color:var(--muted);margin-top:6px;">—</div>
+            </div>
+            <div style="padding:14px 16px;background:rgba(0,46,247,.12);border:1px solid rgba(0,46,247,.35);border-radius:12px;">
+              <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Precio pase</div>
+              <div id="calc-final" style="font-size:22px;font-weight:700;margin-top:6px;color:var(--white);">—</div>
+              <div style="font-size:12px;color:var(--muted);margin-top:6px;">Reserva: <span id="calc-reserva" style="color:var(--white);font-weight:600;">—</span></div>
+            </div>
+          </div>
+
+          <div style="margin-top:16px;padding:12px 16px;background:var(--surface2);border-radius:10px;font-size:12px;color:var(--muted);line-height:1.6;">
+            <strong style="color:var(--white);">Fórmula:</strong> <code>precio = β · precio_real + (1 − β) · precio_esperado</code><br>
+            <strong style="color:var(--white);">β:</strong> 0.6 si Real &lt; Esperada (descuento) · 1 si Real ≥ Esperada (precio pleno)<br>
+            <strong style="color:var(--white);">Reserva:</strong> <code>precio × 1.30</code>
+          </div>
+        </div>
       </div>
 
     </div><!-- /results -->
@@ -913,6 +973,75 @@
         return `<tr><td class="td-hour">${String(h).padStart(2,'0')}:00</td>${cells}</tr>`;
       }).join('');
     })();
+
+    // ── Calculadora de precios ─────────────────────────────────────────────
+    (function initCalc() {
+      const elDay     = document.getElementById('calc-day');
+      const elHour    = document.getElementById('calc-hour');
+      const elReal    = document.getElementById('calc-real');
+      if (!elDay || !elHour || !elReal) return;
+
+      // Poblar horas 6..22
+      for (let h = 6; h <= 22; h++) {
+        const opt = document.createElement('option');
+        opt.value = h;
+        opt.textContent = String(h).padStart(2,'0') + ':00';
+        elHour.appendChild(opt);
+      }
+
+      // Defaults basados en ahora (Lun=0..Dom=6)
+      const now = new Date();
+      const jsDow = now.getDay();                 // 0=Dom..6=Sab
+      const mondayFirst = (jsDow + 6) % 7;        // 0=Lun..6=Dom
+      elDay.value = mondayFirst;
+      const currentHour = Math.max(6, Math.min(22, now.getHours()));
+      elHour.value = currentHour;
+
+      function recalc() {
+        const dow     = parseInt(elDay.value, 10);
+        const h       = parseInt(elHour.value, 10);
+        const realPct = parseFloat(elReal.value);
+        const expPct  = defExp(h, dow);
+
+        const teExp  = getTier(expPct);
+        const teReal = isNaN(realPct) ? {label:'No hay data', price:null, rank:-1} : getTier(realPct);
+
+        // Ocup. Esperada
+        document.getElementById('calc-exp').textContent = expPct + '%';
+        document.getElementById('calc-exp-tier').innerHTML =
+          `<span class="badge ${TIER_BADGE[teExp.label] || 'badge-nodata'}">${teExp.label}</span>`;
+
+        // Tier Real
+        document.getElementById('calc-real-pct').textContent = isNaN(realPct) ? '—' : realPct + '%';
+        document.getElementById('calc-real-tier').innerHTML =
+          `<span class="badge ${TIER_BADGE[teReal.label] || 'badge-nodata'}">${teReal.label}</span>`;
+
+        // β (misma regla que rowCalc: rankReal < rankEsperada → 0.6, sino 1)
+        if (teReal.price === null || teExp.price === null) {
+          document.getElementById('calc-beta').textContent = '—';
+          document.getElementById('calc-beta-reason').textContent = 'Falta data';
+          document.getElementById('calc-final').textContent = '—';
+          document.getElementById('calc-reserva').textContent = '—';
+          return;
+        }
+        const rankR = TIER_RANK[teReal.label] ?? 0;
+        const rankE = TIER_RANK[teExp.label] ?? 0;
+        const beta  = rankR < rankE ? 0.6 : 1;
+        document.getElementById('calc-beta').textContent = 'β = ' + beta;
+        document.getElementById('calc-beta-reason').textContent =
+          beta === 0.6 ? 'Real < Esperada → descuento' : 'Real ≥ Esperada → precio pleno';
+
+        const fin = Math.round(beta * teReal.price + (1 - beta) * teExp.price);
+        document.getElementById('calc-final').textContent   = '$' + fin.toLocaleString('es-CL');
+        document.getElementById('calc-reserva').textContent = '$' + Math.round(fin * 1.30).toLocaleString('es-CL');
+      }
+
+      elDay.addEventListener('change', recalc);
+      elHour.addEventListener('change', recalc);
+      elReal.addEventListener('input', recalc);
+      recalc();
+    })();
+
     // ── Theme toggle ─────────────────────────────────────────────────────
     function applyTheme(light) {
       document.documentElement.classList.toggle('light', light);
