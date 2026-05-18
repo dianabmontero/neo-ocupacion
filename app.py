@@ -16,25 +16,26 @@ app = Flask(__name__)
 
 CAPACITY_DEFAULT = 85
 
+# Matriz v5 (May 2026) — umbrales más exigentes y precios +$300 en Media/MA/Alta.
 PRICE_TIERS = [
     {"label": "No hay data", "min": None, "max": None,  "price": None, "rank": -1},
-    {"label": "Baja",        "min": 0,    "max": 30,    "price": 1000, "rank": 0},
-    {"label": "Media baja",  "min": 30,   "max": 45,    "price": 2000, "rank": 1},
-    {"label": "Media",       "min": 45,   "max": 60,    "price": 3000, "rank": 2},
-    {"label": "Media alta",  "min": 60,   "max": 90,    "price": 4000, "rank": 3},
-    {"label": "Alta",        "min": 90,   "max": 100,   "price": 5000, "rank": 4},
+    {"label": "Baja",        "min": 0,    "max": 21,    "price": 1000, "rank": 0},
+    {"label": "Medio bajo",  "min": 21,   "max": 35,    "price": 2000, "rank": 1},
+    {"label": "Media",       "min": 35,   "max": 58,    "price": 3300, "rank": 2},
+    {"label": "Media alta",  "min": 58,   "max": 94,    "price": 4300, "rank": 3},
+    {"label": "Alta",        "min": 94,   "max": 100,   "price": 5300, "rank": 4},
 ]
 
 def get_tier(pct):
     if pct is None:
         return PRICE_TIERS[0]
-    if pct > 90:
+    if pct > 94:
         return PRICE_TIERS[5]
-    if pct > 60:
+    if pct > 58:
         return PRICE_TIERS[4]
-    if pct > 45:
+    if pct > 35:
         return PRICE_TIERS[3]
-    if pct > 30:
+    if pct > 21:
         return PRICE_TIERS[2]
     return PRICE_TIERS[1]
 

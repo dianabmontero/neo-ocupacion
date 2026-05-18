@@ -77,6 +77,7 @@
     html.light .badge-media-alta { background: #ffedd5; color: #9a3412; border: 1px solid #fdba74; }
     html.light .badge-alta       { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
     html.light .badge-nodata     { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+    html.light .badge-cerrado    { background: #e5e7eb; color: #4b5563; border: 1px solid #9ca3af; }
     html.light .beta-1           { background: #dbeafe; color: #1d4ed8; }
     html.light .beta-06          { background: #ede9fe; color: #6d28d9; }
 
@@ -501,6 +502,7 @@
     .badge-alta       { background: rgba(239,68,68,.18);   color: #f87171; }
     .badge-maxima     { background: rgba(127,29,29,.35);   color: #fca5a5; }
     .badge-nodata     { background: rgba(165,167,176,.12); color: var(--text-muted); }
+    .badge-cerrado    { background: rgba(107,114,128,.18); color: #9ca3af; }
 
     /* ── Beta badge ── */
     .beta-1    { background: rgba(0,46,247,.18); color: var(--blue-300); }
@@ -862,6 +864,7 @@
       'Media alta': '#f97316',
       'Alta':       '#ef4444',
       'No hay data':'#75777d',
+      'Cerrado':    '#9ca3af',
     };
     const TIER_BADGE = {
       'Baja':       'badge-baja',
@@ -870,35 +873,43 @@
       'Media alta': 'badge-media-alta',
       'Alta':       'badge-alta',
       'No hay data':'badge-nodata',
+      'Cerrado':    'badge-cerrado',
     };
     // Tier rank for β comparison (low < low_medium < medium < medium_high < high)
     const TIER_RANK = { 'Baja': 0, 'Medio bajo': 1, 'Media': 2, 'Media alta': 3, 'Alta': 4 };
 
-    // Ocup Esperada (Lunes=0 … Domingo=6)
-    // Midpoints: Baja=15, MedioBajo=37, Media=52, MediaAlta=75, Alta=95
+    // Ocup Esperada — Matriz v5 (Lunes=0 … Domingo=6)
+    // Midpoints v5: Baja=10, MedioBajo=28, Media=47, MediaAlta=76, Alta=97
+    // null = gym cerrado (sin clases). Lun-Jue 22h, Vie 22h+, Sáb/Dom 6-8h y 14-22h.
     const CHILE = {
-       6:[52,75,52,52,37,15,15],
-       7:[75,95,75,75,52,15,15],
-       8:[75,75,75,75,52,15,15],
-       9:[37,52,37,37,37,52,15],
-      10:[37,37,52,37,37,75,37],
-      11:[37,37,37,37,37,75,52],
-      12:[37,37,37,37,37,52,52],
-      13:[37,52,37,37,37,15,15],
-      14:[15,15,15,15,15,15,15],
-      15:[15,37,15,15,15,15,15],
-      16:[37,37,37,15,15,15,15],
-      17:[52,52,52,37,37,15,15],
-      18:[75,95,75,75,37,15,15],
-      19:[75,95,75,75,15,15,15],
-      20:[37,52,37,15,15,15,15],
-      21:[15,15,15,15,15,15,15],
-      22:[15,15,15,15,15,15,15],
+       6:[10,  10,  10,  10,  10,  null,null],
+       7:[10,  10,  10,  10,  10,  null,null],
+       8:[28,  28,  28,  28,  28,  null,null],
+       9:[28,  28,  28,  28,  28,  47,  10  ],
+      10:[76,  76,  76,  76,  76,  76,  28  ],
+      11:[76,  76,  76,  76,  76,  76,  47  ],
+      12:[10,  10,  10,  10,  10,  47,  47  ],
+      13:[47,  47,  47,  10,  10,  10,  10  ],
+      14:[47,  47,  47,  47,  28,  null,null],
+      15:[47,  47,  28,  28,  28,  null,null],
+      16:[76,  76,  47,  47,  10,  null,null],
+      17:[76,  76,  76,  76,  47,  null,null],
+      18:[97,  97,  97,  76,  47,  null,null],
+      19:[97,  97,  76,  76,  47,  null,null],
+      20:[76,  76,  76,  47,  10,  null,null],
+      21:[76,  76,  76,  76,  47,  null,null],
+      22:[28,  28,  28,  28,  null,null,null],
     };
 
-    function defExp(h, dow) { return (CHILE[h] || [])[dow] ?? 35; }
+    // Retorna el % esperado para ese (hora, día). null = gym cerrado.
+    function defExp(h, dow) {
+      if (!CHILE[h]) return 35;
+      return CHILE[h][dow];
+    }
+    function isClosed(h, dow) { return defExp(h, dow) === null; }
 
     function getPersonitas(label) {
+      if (label === 'Cerrado')                         return '🚫';
       if (label === 'Baja')                           return '👤';
       if (label === 'Medio bajo' || label === 'Media') return '👤👤';
       if (label === 'Media alta' || label === 'Alta')  return '👤👤👤';
@@ -912,10 +923,10 @@
 
     function getTier(pct) {
       if (pct === null || pct === undefined || isNaN(pct)) return {label:'No hay data', price:null, rank:-1};
-      if (pct > 90)  return {label:'Alta',       price:5000, rank:4};
-      if (pct > 60)  return {label:'Media alta', price:4000, rank:3};
-      if (pct > 45)  return {label:'Media',      price:3000, rank:2};
-      if (pct > 30)  return {label:'Medio bajo', price:2000, rank:1};
+      if (pct > 94)  return {label:'Alta',       price:5300, rank:4};
+      if (pct > 58)  return {label:'Media alta', price:4300, rank:3};
+      if (pct > 35)  return {label:'Media',      price:3300, rank:2};
+      if (pct > 21)  return {label:'Medio bajo', price:2000, rank:1};
       return              {label:'Baja',       price:1000, rank:0};
     }
 
@@ -945,24 +956,25 @@
 
     // Render Ocup Esperada static table
     (function renderEspTable() {
+      // Matriz v5
       const OCUP = [
-        [6,  'Media',     'Media alta','Media',     'Media',     'Medio bajo','Baja',      'Baja'],
-        [7,  'Media alta','Alta',      'Media alta','Media alta','Media',     'Baja',      'Baja'],
-        [8,  'Media alta','Media alta','Media alta','Media alta','Media',     'Baja',      'Baja'],
-        [9,  'Medio bajo','Media',     'Medio bajo','Medio bajo','Medio bajo','Media',     'Baja'],
-        [10, 'Medio bajo','Medio bajo','Media',     'Medio bajo','Medio bajo','Media alta','Medio bajo'],
-        [11, 'Medio bajo','Medio bajo','Medio bajo','Medio bajo','Medio bajo','Media alta','Media'],
-        [12, 'Medio bajo','Medio bajo','Medio bajo','Medio bajo','Medio bajo','Media',     'Media'],
-        [13, 'Medio bajo','Media',     'Medio bajo','Medio bajo','Medio bajo','Baja',      'Baja'],
-        [14, 'Baja',      'Baja',      'Baja',      'Baja',      'Baja',      'Baja',      'Baja'],
-        [15, 'Baja',      'Medio bajo','Baja',      'Baja',      'Baja',      'Baja',      'Baja'],
-        [16, 'Medio bajo','Medio bajo','Medio bajo','Baja',      'Baja',      'Baja',      'Baja'],
-        [17, 'Media',     'Media',     'Media',     'Medio bajo','Medio bajo','Baja',      'Baja'],
-        [18, 'Media alta','Alta',      'Media alta','Media alta','Medio bajo','Baja',      'Baja'],
-        [19, 'Media alta','Alta',      'Media alta','Media alta','Baja',      'Baja',      'Baja'],
-        [20, 'Medio bajo','Media',     'Medio bajo','Baja',      'Baja',      'Baja',      'Baja'],
-        [21, 'Baja',      'Baja',      'Baja',      'Baja',      'Baja',      'Baja',      'Baja'],
-        [22, 'Baja',      'Baja',      'Baja',      'Baja',      'Baja',      'Baja',      'Baja'],
+        [6,  'Baja',      'Baja',      'Baja',      'Baja',      'Baja',      'Cerrado',   'Cerrado'],
+        [7,  'Baja',      'Baja',      'Baja',      'Baja',      'Baja',      'Cerrado',   'Cerrado'],
+        [8,  'Medio bajo','Medio bajo','Medio bajo','Medio bajo','Medio bajo','Cerrado',   'Cerrado'],
+        [9,  'Medio bajo','Medio bajo','Medio bajo','Medio bajo','Medio bajo','Media',     'Baja'],
+        [10, 'Media alta','Media alta','Media alta','Media alta','Media alta','Media alta','Medio bajo'],
+        [11, 'Media alta','Media alta','Media alta','Media alta','Media alta','Media alta','Media'],
+        [12, 'Baja',      'Baja',      'Baja',      'Baja',      'Baja',      'Media',     'Media'],
+        [13, 'Media',     'Media',     'Media',     'Baja',      'Baja',      'Baja',      'Baja'],
+        [14, 'Media',     'Media',     'Media',     'Media',     'Medio bajo','Cerrado',   'Cerrado'],
+        [15, 'Media',     'Media',     'Medio bajo','Medio bajo','Medio bajo','Cerrado',   'Cerrado'],
+        [16, 'Media alta','Media alta','Media',     'Media',     'Baja',      'Cerrado',   'Cerrado'],
+        [17, 'Media alta','Media alta','Media alta','Media alta','Media',     'Cerrado',   'Cerrado'],
+        [18, 'Alta',      'Alta',      'Alta',      'Media alta','Media',     'Cerrado',   'Cerrado'],
+        [19, 'Alta',      'Alta',      'Media alta','Media alta','Media',     'Cerrado',   'Cerrado'],
+        [20, 'Media alta','Media alta','Media alta','Media',     'Baja',      'Cerrado',   'Cerrado'],
+        [21, 'Media alta','Media alta','Media alta','Media alta','Media',     'Cerrado',   'Cerrado'],
+        [22, 'Medio bajo','Medio bajo','Medio bajo','Medio bajo','Cerrado',   'Cerrado',   'Cerrado'],
       ];
       document.getElementById('espTableBody').innerHTML = OCUP.map(row => {
         const [h, ...days] = row;
@@ -1002,12 +1014,13 @@
         const h       = parseInt(elHour.value, 10);
         const realPct = parseFloat(elReal.value);
         const expPct  = defExp(h, dow);
+        const isClosedSlot = expPct === null;
 
-        const teExp  = getTier(expPct);
+        const teExp  = isClosedSlot ? {label:'Cerrado', price:null} : getTier(expPct);
         const teReal = isNaN(realPct) ? {label:'No hay data', price:null, rank:-1} : getTier(realPct);
 
         // Ocup. Esperada
-        document.getElementById('calc-exp').textContent = expPct + '%';
+        document.getElementById('calc-exp').textContent = isClosedSlot ? '—' : (expPct + '%');
         document.getElementById('calc-exp-tier').innerHTML =
           `<span class="badge ${TIER_BADGE[teExp.label] || 'badge-nodata'}">${teExp.label}</span>`;
 
@@ -1017,6 +1030,13 @@
           `<span class="badge ${TIER_BADGE[teReal.label] || 'badge-nodata'}">${teReal.label}</span>`;
 
         // β (misma regla que rowCalc: rankReal < rankEsperada → 0.6, sino 1)
+        if (isClosedSlot) {
+          document.getElementById('calc-beta').textContent = '—';
+          document.getElementById('calc-beta-reason').textContent = 'Gym cerrado en este horario';
+          document.getElementById('calc-final').textContent = 'Sin clases';
+          document.getElementById('calc-reserva').textContent = '—';
+          return;
+        }
         if (teReal.price === null || teExp.price === null) {
           document.getElementById('calc-beta').textContent = '—';
           document.getElementById('calc-beta-reason').textContent = 'Falta data';
@@ -1139,16 +1159,16 @@
       // Legend
       const cap = data.capacity;
       const TIERS = [
-        ['Baja',      '≤30%',  '$1.000', Math.floor(cap * 0.30)],
-        ['Medio bajo','≤45%',  '$2.000', Math.floor(cap * 0.45)],
-        ['Media',     '≤60%',  '$3.000', Math.floor(cap * 0.60)],
-        ['Media alta','≤90%',  '$4.000', Math.floor(cap * 0.90)],
-        ['Alta',      '>90%',  '$5.000', null],
+        ['Baja',      '≤21%',     '$1.000', Math.floor(cap * 0.21)],
+        ['Medio bajo','21–35%',   '$2.000', Math.floor(cap * 0.35)],
+        ['Media',     '35–58%',   '$3.300', Math.floor(cap * 0.58)],
+        ['Media alta','58–94%',   '$4.300', Math.floor(cap * 0.94)],
+        ['Alta',      '>94%',     '$5.300', null],
       ];
       document.getElementById('legendEl').innerHTML = TIERS.map(([t,p,pr,maxP]) =>
         `<div class="legend-chip">
           <div class="legend-dot" style="background:${TIER_COLORS[t]}"></div>
-          ${t} · ${p} · ${pr} · <span style="color:var(--text-secondary)">${maxP !== null ? '≤' + maxP + ' pers.' : '>' + Math.floor(cap*0.90) + ' pers.'}</span>
+          ${t} · ${p} · ${pr} · <span style="color:var(--text-secondary)">${maxP !== null ? '≤' + maxP + ' pers.' : '>' + Math.floor(cap*0.94) + ' pers.'}</span>
         </div>`).join('');
 
       renderLiveCard(data);
@@ -1187,32 +1207,36 @@
       const hNum = data.current_hour;
       const tr   = getTier(livePct);
 
-      // Expected for current hour
+      // Expected for current hour (null = gym cerrado)
       const expPct     = defExp(hNum, dow);
-      const te         = getTier(expPct);
+      const isClosedNow = expPct === null;
+      const te         = isClosedNow ? {label:'Cerrado', price:null} : getTier(expPct);
       // Expected for next hour (transition)
       const expNextPct = defExp(hNum + 1, dow);
-      const teNext     = getTier(expNextPct);
+      const isClosedNext = expNextPct === null;
+      const teNext     = isClosedNext ? {label:'Cerrado', price:null} : getTier(expNextPct);
 
       let fin;
-      if (isTransition) {
-        fin = calcTransition(tr.price, teNext.price);
+      if (isClosedNow) {
+        fin = null;
+      } else if (isTransition) {
+        fin = isClosedNext ? tr.price : calcTransition(tr.price, teNext.price);
       } else {
         fin = calcFinal(tr.price, te.price, tr.label, te.label);
       }
 
       const bc = TIER_BADGE[tr.label] || 'badge-nodata';
-      const beLabel = isTransition ? teNext.label : te.label;
+      const beLabel = isTransition && !isClosedNext ? teNext.label : te.label;
       const be = TIER_BADGE[beLabel] || 'badge-nodata';
 
       document.getElementById('liveHour').textContent    = `${String(data.current_hour).padStart(2,'0')}:${String(data.current_minute).padStart(2,'0')}`;
       document.getElementById('liveCount').textContent   = liveCount;
       document.getElementById('liveTier').innerHTML      = `<span class="badge ${bc}">${tr.label}</span> <span style="color:var(--text-muted)">${livePct}%</span>`;
-      document.getElementById('liveExpTier').innerHTML   = `<span class="badge ${be}">${beLabel}</span>${isTransition ? ' <span style="color:var(--text-muted);font-size:11px">(hora sig.)</span>' : ''}`;
-      document.getElementById('liveFinal').textContent   = fin !== null ? '$' + fin.toLocaleString('es-CL') : '—';
-      document.getElementById('liveReserva').textContent = fin !== null ? '🤸 Reserva: $' + Math.round(fin * 1.30).toLocaleString('es-CL') : '';
-      document.getElementById('livePersonitas').textContent = getPersonitas(tr.label);
-      document.getElementById('liveTransitionBadge').style.display = isTransition ? 'inline-flex' : 'none';
+      document.getElementById('liveExpTier').innerHTML   = `<span class="badge ${be}">${beLabel}</span>${isTransition && !isClosedNext ? ' <span style="color:var(--text-muted);font-size:11px">(hora sig.)</span>' : ''}`;
+      document.getElementById('liveFinal').textContent   = isClosedNow ? 'Sin clases' : (fin !== null ? '$' + fin.toLocaleString('es-CL') : '—');
+      document.getElementById('liveReserva').textContent = isClosedNow ? '' : (fin !== null ? '🤸 Reserva: $' + Math.round(fin * 1.30).toLocaleString('es-CL') : '');
+      document.getElementById('livePersonitas').textContent = isClosedNow ? '🚫' : getPersonitas(tr.label);
+      document.getElementById('liveTransitionBadge').style.display = (isTransition && !isClosedNow) ? 'inline-flex' : 'none';
       card.style.display = 'block';
     }
 
@@ -1220,48 +1244,70 @@
       const hNum = parseInt(h.hour);
       const exp  = defExp(hNum, dow);
       const tr   = getTier(h.pct);
-      const te   = getTier(exp);
-      const isTransition = isLast && data.current_minute >= 45;
+      const isClosedSlot = exp === null;
+      // Si el gym está cerrado, no hay tier esperado ni precio.
+      const te   = isClosedSlot ? {label:'Cerrado', price:null, rank:-2} : getTier(exp);
+      const isTransition = isLast && data.current_minute >= 45 && !isClosedSlot;
 
       let fin, beta, betaLabel;
-      if (isTransition) {
+      if (isClosedSlot) {
+        fin = null; beta = null; betaLabel = '—';
+      } else if (isTransition) {
         const expNextPct = defExp(hNum + 1, dow);
-        const teNext     = getTier(expNextPct);
-        fin = calcTransition(tr.price, teNext.price);
-        beta = 0.6; betaLabel = 'α=0.6';
+        // Si la próxima hora está cerrada, no hay transición real: usamos el precio actual.
+        if (expNextPct === null) {
+          fin = tr.price;
+          beta = 1; betaLabel = 'β=1';
+        } else {
+          const teNext = getTier(expNextPct);
+          fin = calcTransition(tr.price, teNext.price);
+          beta = 0.6; betaLabel = 'α=0.6';
+        }
       } else {
         beta = (TIER_RANK[tr.label] ?? 0) < (TIER_RANK[te.label] ?? 0) ? 0.6 : 1;
         fin  = calcFinal(tr.price, te.price, tr.label, te.label);
         betaLabel = `β=${beta}`;
       }
-      return { tr, te, fin, beta, betaLabel, exp, isTransition };
+      return { tr, te, fin, beta, betaLabel, exp, isTransition, isClosed: isClosedSlot };
     }
 
     function renderTable(data) {
       const lastIdx = data.hourly.length - 1;
       document.getElementById('tableBody').innerHTML = data.hourly.map((h,i) => {
         const isLast = i === lastIdx;
-        const { tr, te, fin, beta, betaLabel, exp, isTransition } = rowCalc(h, i, isLast, data);
+        const { tr, te, fin, beta, betaLabel, exp, isTransition, isClosed } = rowCalc(h, i, isLast, data);
         const bc = TIER_BADGE[tr.label] || 'badge-nodata';
         const be = TIER_BADGE[te.label] || 'badge-nodata';
         const bb = beta === 1 ? 'beta-1' : 'beta-06';
         const rowStyle = isLast ? 'background:var(--surface2)' : '';
+        const expCell = isClosed
+          ? `<span style="color:var(--text-muted)">—</span>`
+          : `<input class="exp-input" type="number" min="0" max="100"
+              value="${exp}" data-row="${i}"
+              onchange="onExpChange(${i},this.value)"
+              oninput="onExpChange(${i},this.value)" />`;
+        const betaCell = isClosed
+          ? `<span style="color:var(--text-muted)">—</span>`
+          : `<span class="badge ${bb}">${betaLabel}</span>`;
+        const finalCell = isClosed
+          ? `<span style="color:var(--text-muted)">Sin clases</span>`
+          : fmtPrice(fin);
+        const reservaCell = isClosed
+          ? `<span style="color:var(--text-muted)">—</span>`
+          : `<span style="color:#a78bfa;font-weight:600">${fmtReserva(fin)}</span>`;
         return `<tr style="${rowStyle}">
           <td class="td-hour">${h.hour}${isLast ? ' <span style="color:#4ade80;font-size:10px">●</span>' : ''}</td>
           <td>${h.count}</td>
           <td class="td-pct">${h.pct}%</td>
           <td><span class="badge ${bc}">${tr.label}</span></td>
           <td>${fmtPricePlain(tr.price)}</td>
-          <td><input class="exp-input" type="number" min="0" max="100"
-            value="${exp}" data-row="${i}"
-            onchange="onExpChange(${i},this.value)"
-            oninput="onExpChange(${i},this.value)" /></td>
+          <td>${expCell}</td>
           <td id="te-${i}"><span class="badge ${be}">${te.label}</span>${isTransition ? '<span style="color:var(--text-muted);font-size:10px;margin-left:4px">sig.</span>' : ''}</td>
-          <td id="pe-${i}">${fmtPricePlain(te.price)}</td>
-          <td id="bt-${i}"><span class="badge ${bb}">${betaLabel}</span></td>
-          <td id="pf-${i}" class="td-final">${fmtPrice(fin)}</td>
-          <td id="rv-${i}" style="color:#a78bfa;font-weight:600">${fmtReserva(fin)}</td>
-          <td id="pp-${i}" style="font-size:16px">${getPersonitas(tr.label)}</td>
+          <td id="pe-${i}">${isClosed ? '<span style="color:var(--text-muted)">—</span>' : fmtPricePlain(te.price)}</td>
+          <td id="bt-${i}">${betaCell}</td>
+          <td id="pf-${i}" class="td-final">${finalCell}</td>
+          <td id="rv-${i}">${reservaCell}</td>
+          <td id="pp-${i}" style="font-size:16px">${isClosed ? '🚫' : getPersonitas(tr.label)}</td>
           <td style="color:var(--blue-300);font-weight:600">+${h.checkins_in_hour}</td>
           <td style="color:#f87171;font-weight:600">-${h.checkouts_in_hour}</td>
         </tr>`;
