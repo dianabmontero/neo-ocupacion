@@ -35,26 +35,28 @@ SEDES_CONFIG = {
     },
 }
 
-# Matriz v5 (May 2026) — umbrales más exigentes y precios +$300 en Media/MA/Alta.
+# Matriz v6 (Jun 2026) — tiers en pax (Baja ≤22, MB 23-30, Media 31-60, MA 61-80, Alta >80).
+# Estos valores son para Plaza Vespucio (cap 85). El frontend recalcula los tier_label/price
+# usando la config sede-aware (SEDES), así que estos campos en el JSON son meramente informativos.
 PRICE_TIERS = [
     {"label": "No hay data", "min": None, "max": None,  "price": None, "rank": -1},
-    {"label": "Baja",        "min": 0,    "max": 21,    "price": 1000, "rank": 0},
-    {"label": "Medio bajo",  "min": 21,   "max": 35,    "price": 2000, "rank": 1},
-    {"label": "Media",       "min": 35,   "max": 58,    "price": 3300, "rank": 2},
-    {"label": "Media alta",  "min": 58,   "max": 94,    "price": 4300, "rank": 3},
-    {"label": "Alta",        "min": 94,   "max": 100,   "price": 5300, "rank": 4},
+    {"label": "Baja",        "min": 0,    "max": 26,    "price": 1000, "rank": 0},
+    {"label": "Medio bajo",  "min": 26,   "max": 36,    "price": 2200, "rank": 1},
+    {"label": "Media",       "min": 36,   "max": 71,    "price": 3300, "rank": 2},
+    {"label": "Media alta",  "min": 71,   "max": 95,    "price": 4300, "rank": 3},
+    {"label": "Alta",        "min": 95,   "max": 100,   "price": 5300, "rank": 4},
 ]
 
 def get_tier(pct):
     if pct is None:
         return PRICE_TIERS[0]
-    if pct > 94:
+    if pct > 95:
         return PRICE_TIERS[5]
-    if pct > 58:
+    if pct > 71:
         return PRICE_TIERS[4]
-    if pct > 35:
+    if pct > 36:
         return PRICE_TIERS[3]
-    if pct > 21:
+    if pct > 26:
         return PRICE_TIERS[2]
     return PRICE_TIERS[1]
 
