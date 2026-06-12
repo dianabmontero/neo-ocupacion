@@ -211,7 +211,11 @@ def entries_to_dataframe(
             "Molinete/Torniquete": sede_name or "",
         })
 
-    df = pd.DataFrame(rows)
+    # Si no hubo entries (p.ej. sede recién abierta sin tránsito), devolvemos
+    # un DataFrame vacío PERO con las columnas esperadas para que process_excel
+    # no falle al hacer .str.strip() sobre columnas numéricas default.
+    columns = ["Hora de acceso", "Acción", "Nombre", "Sede de origen", "Molinete/Torniquete"]
+    df = pd.DataFrame(rows, columns=columns)
     return df
 
 

@@ -69,6 +69,32 @@ def process_excel(file_bytes, capacity, sede_filter="Interlaken", display_start_
     if not date_col or not action_col:
         return None, "No se encontraron columnas de fecha/hora o acción en el archivo."
 
+    # Caso edge: la sede no tuvo tránsito todavía hoy (p.ej. recién abrió, ocup=0).
+    # Devolvemos un esqueleto con todas las horas en cero — el live card va a
+    # usar el override de /configuration/occupation de todos modos.
+    if df.empty:
+        from datetime import datetime as _dt
+        now = _dt.now()
+        min_hour = display_start_hour if display_start_hour is not None else 6
+        hourly_empty = []
+        for h in range(min_hour, max(min_hour + 1, now.hour + 2)):
+            hourly_empty.append({
+                "hour": f"{h:02d}:00", "count": 0, "pct": 0.0,
+                "tier_label": "Baja", "price": 1000,
+                "checkins_in_hour": 0, "checkouts_in_hour": 0,
+            })
+        return {
+            "date": now.strftime('%d/%m/%Y'),
+            "day_of_week": int(now.weekday()),
+            "capacity": capacity,
+            "total_events": 0,
+            "ignored_events": 0,
+            "current_minute": int(now.minute),
+            "current_hour": int(now.hour),
+            "sede": "NEO",
+            "hourly": hourly_empty,
+        }, None
+
     # Filter by sede (solo para el upload manual que trae multi-sede).
     # Si sede_filter=None, no filtra — útil cuando la fuente ya filtra
     # por DNS/token (p.ej. /fetch-evo).
