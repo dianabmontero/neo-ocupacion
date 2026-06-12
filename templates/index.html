@@ -621,6 +621,13 @@
       <div class="card-label">Ocupación en vivo</div>
       <div class="upload-grid">
         <div class="field">
+          <span class="field-label">Sede</span>
+          <select id="sedeSelect" onchange="onSedeChange(this.value)" style="background:var(--surface2);border:1px solid var(--border-light);border-radius:10px;padding:10px 14px;color:var(--text);font-family:'Wix Madefor Display',sans-serif;font-size:13px;outline:none;min-width:170px;">
+            <option value="plaza_vespucio">Plaza Vespucio</option>
+            <option value="independencia">Independencia</option>
+          </select>
+        </div>
+        <div class="field">
           <span class="field-label">Capacidad</span>
           <input type="number" id="capacityInput" value="85" min="1" max="9999" placeholder="85" />
         </div>
@@ -875,36 +882,124 @@
       'No hay data':'badge-nodata',
       'Cerrado':    'badge-cerrado',
     };
-    // Tier rank for β comparison (low < low_medium < medium < medium_high < high)
+    // Tier rank for β comparison (mismo para ambas sedes — los labels son iguales)
     const TIER_RANK = { 'Baja': 0, 'Medio bajo': 1, 'Media': 2, 'Media alta': 3, 'Alta': 4 };
 
-    // Ocup Esperada — Matriz v5 (Lunes=0 … Domingo=6)
-    // Midpoints v5: Baja=10, MedioBajo=28, Media=47, MediaAlta=76, Alta=97
-    // null = gym cerrado (sin clases). Lun-Jue 22h, Vie 22h+, Sáb/Dom 6-8h y 14-22h.
-    const CHILE = {
-       6:[10,  10,  10,  10,  10,  null,null],
-       7:[10,  10,  10,  10,  10,  null,null],
-       8:[28,  28,  28,  28,  28,  null,null],
-       9:[28,  28,  28,  28,  28,  47,  10  ],
-      10:[76,  76,  76,  76,  76,  76,  28  ],
-      11:[76,  76,  76,  76,  76,  76,  47  ],
-      12:[10,  10,  10,  10,  10,  47,  47  ],
-      13:[47,  47,  47,  10,  10,  10,  10  ],
-      14:[47,  47,  47,  47,  28,  null,null],
-      15:[47,  47,  28,  28,  28,  null,null],
-      16:[76,  76,  47,  47,  10,  null,null],
-      17:[76,  76,  76,  76,  47,  null,null],
-      18:[97,  97,  97,  76,  47,  null,null],
-      19:[97,  97,  76,  76,  47,  null,null],
-      20:[76,  76,  76,  47,  10,  null,null],
-      21:[76,  76,  76,  76,  47,  null,null],
-      22:[28,  28,  28,  28,  null,null,null],
+    // ── Config por sede ────────────────────────────────────────────────────
+    // thresholds: cada tier es "pct <= upTo". Iteramos en orden.
+    // expected: matriz [hora][dia] de % esperado. null = gym cerrado (sin clases).
+    // ocup: labels para la tabla estática (mismo shape que expected).
+    const SEDES = {
+      plaza_vespucio: {
+        name: 'Plaza Vespucio',
+        capacity: 85,
+        thresholds: [
+          { upTo: 21,  label: 'Baja',       price: 1000 },
+          { upTo: 35,  label: 'Medio bajo', price: 2000 },
+          { upTo: 58,  label: 'Media',      price: 3300 },
+          { upTo: 94,  label: 'Media alta', price: 4300 },
+          { upTo: 100, label: 'Alta',       price: 5300 },
+        ],
+        expected: {
+           6:[10,  10,  10,  10,  10,  null,null],
+           7:[10,  10,  10,  10,  10,  null,null],
+           8:[28,  28,  28,  28,  28,  null,null],
+           9:[28,  28,  28,  28,  28,  47,  10  ],
+          10:[76,  76,  76,  76,  76,  76,  28  ],
+          11:[76,  76,  76,  76,  76,  76,  47  ],
+          12:[10,  10,  10,  10,  10,  47,  47  ],
+          13:[47,  47,  47,  10,  10,  10,  10  ],
+          14:[47,  47,  47,  47,  28,  null,null],
+          15:[47,  47,  28,  28,  28,  null,null],
+          16:[76,  76,  47,  47,  10,  null,null],
+          17:[76,  76,  76,  76,  47,  null,null],
+          18:[97,  97,  97,  76,  47,  null,null],
+          19:[97,  97,  76,  76,  47,  null,null],
+          20:[76,  76,  76,  47,  10,  null,null],
+          21:[76,  76,  76,  76,  47,  null,null],
+          22:[28,  28,  28,  28,  null,null,null],
+        },
+        ocup: [
+          [6,  'Baja',      'Baja',      'Baja',      'Baja',      'Baja',      'Cerrado',   'Cerrado'],
+          [7,  'Baja',      'Baja',      'Baja',      'Baja',      'Baja',      'Cerrado',   'Cerrado'],
+          [8,  'Medio bajo','Medio bajo','Medio bajo','Medio bajo','Medio bajo','Cerrado',   'Cerrado'],
+          [9,  'Medio bajo','Medio bajo','Medio bajo','Medio bajo','Medio bajo','Media',     'Baja'],
+          [10, 'Media alta','Media alta','Media alta','Media alta','Media alta','Media alta','Medio bajo'],
+          [11, 'Media alta','Media alta','Media alta','Media alta','Media alta','Media alta','Media'],
+          [12, 'Baja',      'Baja',      'Baja',      'Baja',      'Baja',      'Media',     'Media'],
+          [13, 'Media',     'Media',     'Media',     'Baja',      'Baja',      'Baja',      'Baja'],
+          [14, 'Media',     'Media',     'Media',     'Media',     'Medio bajo','Cerrado',   'Cerrado'],
+          [15, 'Media',     'Media',     'Medio bajo','Medio bajo','Medio bajo','Cerrado',   'Cerrado'],
+          [16, 'Media alta','Media alta','Media',     'Media',     'Baja',      'Cerrado',   'Cerrado'],
+          [17, 'Media alta','Media alta','Media alta','Media alta','Media',     'Cerrado',   'Cerrado'],
+          [18, 'Alta',      'Alta',      'Alta',      'Media alta','Media',     'Cerrado',   'Cerrado'],
+          [19, 'Alta',      'Alta',      'Media alta','Media alta','Media',     'Cerrado',   'Cerrado'],
+          [20, 'Media alta','Media alta','Media alta','Media',     'Baja',      'Cerrado',   'Cerrado'],
+          [21, 'Media alta','Media alta','Media alta','Media alta','Media',     'Cerrado',   'Cerrado'],
+          [22, 'Medio bajo','Medio bajo','Medio bajo','Medio bajo','Cerrado',   'Cerrado',   'Cerrado'],
+        ],
+      },
+      independencia: {
+        name: 'Independencia',
+        capacity: 100,
+        thresholds: [
+          { upTo: 25,  label: 'Baja',       price: 1000 },
+          { upTo: 35,  label: 'Medio bajo', price: 2100 },
+          { upTo: 65,  label: 'Media',      price: 3100 },
+          { upTo: 85,  label: 'Media alta', price: 4000 },
+          { upTo: 100, label: 'Alta',       price: 5000 },
+        ],
+        // Midpoints Independencia: Baja=12, MB=30, Media=50, MA=75, Alta=92
+        expected: {
+           6:[12,  12,  12,  12,  12,  null, null],
+           7:[12,  12,  12,  12,  12,  null, null],
+           8:[30,  30,  30,  30,  30,  30,   12  ],
+           9:[30,  30,  30,  30,  30,  50,   30  ],
+          10:[50,  50,  50,  50,  50,  50,   30  ],
+          11:[50,  50,  50,  50,  50,  50,   50  ],
+          12:[12,  12,  12,  12,  12,  30,   30  ],
+          13:[50,  50,  30,  12,  12,  12,   12  ],
+          14:[50,  50,  30,  30,  12,  12,   12  ],
+          15:[50,  50,  30,  30,  12,  null, null],
+          16:[50,  50,  30,  30,  12,  null, null],
+          17:[75,  75,  50,  50,  50,  null, null],
+          18:[75,  75,  75,  50,  50,  null, null],
+          19:[75,  75,  50,  50,  50,  null, null],
+          20:[75,  75,  50,  50,  12,  null, null],
+          21:[50,  50,  50,  50,  12,  null, null],
+          22:[12,  12,  12,  12,  null,null, null],
+        },
+        ocup: [
+          [6,  'Baja',      'Baja',      'Baja',      'Baja',      'Baja',      'Cerrado',   'Cerrado'],
+          [7,  'Baja',      'Baja',      'Baja',      'Baja',      'Baja',      'Cerrado',   'Cerrado'],
+          [8,  'Medio bajo','Medio bajo','Medio bajo','Medio bajo','Medio bajo','Medio bajo','Baja'],
+          [9,  'Medio bajo','Medio bajo','Medio bajo','Medio bajo','Medio bajo','Media',     'Medio bajo'],
+          [10, 'Media',     'Media',     'Media',     'Media',     'Media',     'Media',     'Medio bajo'],
+          [11, 'Media',     'Media',     'Media',     'Media',     'Media',     'Media',     'Media'],
+          [12, 'Baja',      'Baja',      'Baja',      'Baja',      'Baja',      'Medio bajo','Medio bajo'],
+          [13, 'Media',     'Media',     'Medio bajo','Baja',      'Baja',      'Baja',      'Baja'],
+          [14, 'Media',     'Media',     'Medio bajo','Medio bajo','Baja',      'Baja',      'Baja'],
+          [15, 'Media',     'Media',     'Medio bajo','Medio bajo','Baja',      'Cerrado',   'Cerrado'],
+          [16, 'Media',     'Media',     'Medio bajo','Medio bajo','Baja',      'Cerrado',   'Cerrado'],
+          [17, 'Media alta','Media alta','Media',     'Media',     'Media',     'Cerrado',   'Cerrado'],
+          [18, 'Media alta','Media alta','Media alta','Media',     'Media',     'Cerrado',   'Cerrado'],
+          [19, 'Media alta','Media alta','Media',     'Media',     'Media',     'Cerrado',   'Cerrado'],
+          [20, 'Media alta','Media alta','Media',     'Media',     'Baja',      'Cerrado',   'Cerrado'],
+          [21, 'Media',     'Media',     'Media',     'Media',     'Baja',      'Cerrado',   'Cerrado'],
+          [22, 'Baja',      'Baja',      'Baja',      'Baja',      'Cerrado',   'Cerrado',   'Cerrado'],
+        ],
+      },
     };
+
+    // Sede activa (mutable). Por default Plaza Vespucio.
+    let activeSede = 'plaza_vespucio';
+    function sedeCfg() { return SEDES[activeSede]; }
 
     // Retorna el % esperado para ese (hora, día). null = gym cerrado.
     function defExp(h, dow) {
-      if (!CHILE[h]) return 35;
-      return CHILE[h][dow];
+      const matrix = sedeCfg().expected;
+      if (!matrix[h]) return 35;
+      return matrix[h][dow];
     }
     function isClosed(h, dow) { return defExp(h, dow) === null; }
 
@@ -921,13 +1016,17 @@
       return '$' + Math.round(fin * 1.30).toLocaleString('es-CL');
     }
 
+    // Devuelve {label, price, rank} usando los thresholds de la sede activa.
     function getTier(pct) {
-      if (pct === null || pct === undefined || isNaN(pct)) return {label:'No hay data', price:null, rank:-1};
-      if (pct > 94)  return {label:'Alta',       price:5300, rank:4};
-      if (pct > 58)  return {label:'Media alta', price:4300, rank:3};
-      if (pct > 35)  return {label:'Media',      price:3300, rank:2};
-      if (pct > 21)  return {label:'Medio bajo', price:2000, rank:1};
-      return              {label:'Baja',       price:1000, rank:0};
+      if (pct === null || pct === undefined || isNaN(pct)) {
+        return {label:'No hay data', price:null, rank:-1};
+      }
+      const t = sedeCfg().thresholds;
+      for (let i = 0; i < t.length; i++) {
+        if (pct <= t[i].upTo) return { label: t[i].label, price: t[i].price, rank: i };
+      }
+      const last = t[t.length - 1];
+      return { label: last.label, price: last.price, rank: t.length - 1 };
     }
 
     function calcFinal(pr, pe, trLabel, teLabel) {
@@ -955,27 +1054,8 @@
     const TAB_NAMES = ['precios','asistencia','esperada'];
 
     // Render Ocup Esperada static table
-    (function renderEspTable() {
-      // Matriz v5
-      const OCUP = [
-        [6,  'Baja',      'Baja',      'Baja',      'Baja',      'Baja',      'Cerrado',   'Cerrado'],
-        [7,  'Baja',      'Baja',      'Baja',      'Baja',      'Baja',      'Cerrado',   'Cerrado'],
-        [8,  'Medio bajo','Medio bajo','Medio bajo','Medio bajo','Medio bajo','Cerrado',   'Cerrado'],
-        [9,  'Medio bajo','Medio bajo','Medio bajo','Medio bajo','Medio bajo','Media',     'Baja'],
-        [10, 'Media alta','Media alta','Media alta','Media alta','Media alta','Media alta','Medio bajo'],
-        [11, 'Media alta','Media alta','Media alta','Media alta','Media alta','Media alta','Media'],
-        [12, 'Baja',      'Baja',      'Baja',      'Baja',      'Baja',      'Media',     'Media'],
-        [13, 'Media',     'Media',     'Media',     'Baja',      'Baja',      'Baja',      'Baja'],
-        [14, 'Media',     'Media',     'Media',     'Media',     'Medio bajo','Cerrado',   'Cerrado'],
-        [15, 'Media',     'Media',     'Medio bajo','Medio bajo','Medio bajo','Cerrado',   'Cerrado'],
-        [16, 'Media alta','Media alta','Media',     'Media',     'Baja',      'Cerrado',   'Cerrado'],
-        [17, 'Media alta','Media alta','Media alta','Media alta','Media',     'Cerrado',   'Cerrado'],
-        [18, 'Alta',      'Alta',      'Alta',      'Media alta','Media',     'Cerrado',   'Cerrado'],
-        [19, 'Alta',      'Alta',      'Media alta','Media alta','Media',     'Cerrado',   'Cerrado'],
-        [20, 'Media alta','Media alta','Media alta','Media',     'Baja',      'Cerrado',   'Cerrado'],
-        [21, 'Media alta','Media alta','Media alta','Media alta','Media',     'Cerrado',   'Cerrado'],
-        [22, 'Medio bajo','Medio bajo','Medio bajo','Medio bajo','Cerrado',   'Cerrado',   'Cerrado'],
-      ];
+    function renderEspTable() {
+      const OCUP = sedeCfg().ocup;
       document.getElementById('espTableBody').innerHTML = OCUP.map(row => {
         const [h, ...days] = row;
         const cells = days.map(d => {
@@ -984,7 +1064,8 @@
         }).join('');
         return `<tr><td class="td-hour">${String(h).padStart(2,'0')}:00</td>${cells}</tr>`;
       }).join('');
-    })();
+    }
+    renderEspTable();
 
     // ── Calculadora de precios ─────────────────────────────────────────────
     (function initCalc() {
@@ -1060,6 +1141,8 @@
       elHour.addEventListener('change', recalc);
       elReal.addEventListener('input', recalc);
       recalc();
+      // Exponer para re-render cuando cambia la sede
+      window.calcRecalcExternal = recalc;
     })();
 
     // ── Theme toggle ─────────────────────────────────────────────────────
@@ -1076,8 +1159,18 @@
     }
     applyTheme(localStorage.getItem('neo-theme') === 'light');
 
-    // Restore auto-refresh preference (runs once on page load)
+    // Restore preferences (runs once on page load)
     window.addEventListener('DOMContentLoaded', () => {
+      // Sede preferida
+      const savedSede = localStorage.getItem('neo-active-sede');
+      if (savedSede && SEDES[savedSede]) {
+        activeSede = savedSede;
+        document.getElementById('sedeSelect').value = savedSede;
+        document.getElementById('capacityInput').value = sedeCfg().capacity;
+        renderEspTable();
+        if (typeof calcRecalcExternal === 'function') calcRecalcExternal();
+      }
+      // Auto-refresh
       if (localStorage.getItem('neo-auto-refresh') === '1') {
         document.getElementById('autoRefreshToggle').checked = true;
         toggleAutoRefresh();
@@ -1101,7 +1194,6 @@
     let autoRefreshInterval = null;
 
     async function fetchFromEvo() {
-      const cap    = document.getElementById('capacityInput').value || 85;
       const btn    = document.getElementById('evoBtn');
       const err    = document.getElementById('errorMsg');
       const status = document.getElementById('evoStatus');
@@ -1113,19 +1205,31 @@
         const res = await fetch('/fetch-evo', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ hours: 24, capacity: parseInt(cap) || 85 }),
+          body: JSON.stringify({ sede_key: activeSede }),
         });
         const data = await res.json();
         if (!res.ok || data.error) { showErr(data.error || 'Error al sincronizar con EVO'); return; }
         chartData = data; dow = data.day_of_week || 0;
         render(data);
         const now = new Date().toLocaleTimeString('es-CL', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
-        status.textContent = `✓ Última sync: ${now}`;
+        status.textContent = `✓ Última sync: ${now} · ${sedeCfg().name}`;
       } catch(e) { showErr('Error de red EVO: ' + e.message); }
       finally {
         btn.disabled = false;
         btn.innerHTML = originalHtml;
       }
+    }
+
+    function onSedeChange(newSede) {
+      if (!SEDES[newSede]) return;
+      activeSede = newSede;
+      localStorage.setItem('neo-active-sede', newSede);
+      // Actualizar capacidad y re-renderizar la tabla estática + calculadora
+      document.getElementById('capacityInput').value = sedeCfg().capacity;
+      renderEspTable();
+      if (typeof calcRecalcExternal === 'function') calcRecalcExternal();
+      // Si ya hay data cargada, re-fetch con la nueva sede
+      if (chartData) fetchFromEvo();
     }
 
     function toggleAutoRefresh() {
@@ -1156,19 +1260,21 @@
         <div class="meta-pill-value">${v}</div>
       </div>`).join('');
 
-      // Legend
+      // Legend — derivada de la config de la sede activa
       const cap = data.capacity;
-      const TIERS = [
-        ['Baja',      '≤21%',     '$1.000', Math.floor(cap * 0.21)],
-        ['Medio bajo','21–35%',   '$2.000', Math.floor(cap * 0.35)],
-        ['Media',     '35–58%',   '$3.300', Math.floor(cap * 0.58)],
-        ['Media alta','58–94%',   '$4.300', Math.floor(cap * 0.94)],
-        ['Alta',      '>94%',     '$5.300', null],
-      ];
+      const ths = sedeCfg().thresholds;
+      const TIERS = ths.map((t, i) => {
+        const prev = i === 0 ? 0 : ths[i-1].upTo;
+        const rangeLabel = (i === ths.length - 1)
+          ? '>' + prev + '%'
+          : (i === 0 ? '≤' + t.upTo + '%' : prev + '–' + t.upTo + '%');
+        const maxP = (i === ths.length - 1) ? null : Math.floor(cap * t.upTo / 100);
+        return [t.label, rangeLabel, '$' + t.price.toLocaleString('es-CL'), maxP];
+      });
       document.getElementById('legendEl').innerHTML = TIERS.map(([t,p,pr,maxP]) =>
         `<div class="legend-chip">
           <div class="legend-dot" style="background:${TIER_COLORS[t]}"></div>
-          ${t} · ${p} · ${pr} · <span style="color:var(--text-secondary)">${maxP !== null ? '≤' + maxP + ' pers.' : '>' + Math.floor(cap*0.94) + ' pers.'}</span>
+          ${t} · ${p} · ${pr} · <span style="color:var(--text-secondary)">${maxP !== null ? '≤' + maxP + ' pers.' : '>' + Math.floor(cap * ths[ths.length-2].upTo / 100) + ' pers.'}</span>
         </div>`).join('');
 
       renderLiveCard(data);

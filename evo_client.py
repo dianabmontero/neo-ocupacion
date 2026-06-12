@@ -49,21 +49,22 @@ class EvoApiError(Exception):
     """Error HTTP genérico al llamar a EVO."""
 
 
-def _auth_token() -> str:
-    user = os.environ.get("EVO_USERNAME")
-    pwd = os.environ.get("EVO_PASSWORD")
-    if not user or not pwd:
+def _auth_token(user: Optional[str] = None, password: Optional[str] = None) -> str:
+    # Permite override por llamada (multi-sede). Si no se pasa, lee env vars.
+    user = user or os.environ.get("EVO_USERNAME")
+    password = password or os.environ.get("EVO_PASSWORD")
+    if not user or not password:
         raise EvoAuthError(
             "Faltan EVO_USERNAME y/o EVO_PASSWORD en variables de entorno."
         )
-    raw = f"{user}:{pwd}".encode("utf-8")
+    raw = f"{user}:{password}".encode("utf-8")
     return base64.b64encode(raw).decode("ascii")
 
 
-def _headers() -> Dict[str, str]:
+def _headers(user: Optional[str] = None, password: Optional[str] = None) -> Dict[str, str]:
     return {
         "Content-Type": "application/json",
-        "Authorization": f"Basic {_auth_token()}",
+        "Authorization": f"Basic {_auth_token(user, password)}",
         "neo-request": os.environ.get("EVO_NEO_HEADER", DEFAULT_NEO_HEADER),
     }
 
@@ -81,6 +82,8 @@ def fetch_entries(
     member_id: Optional[int] = None,
     actions: Optional[List[str]] = None,
     timeout: int = 30,
+    username: Optional[str] = None,
+    password: Optional[str] = None,
 ) -> List[Dict]:
     """
     GET /api/v1/entries?registerDateStart=...&registerDateEnd=...&take=...&skip=...
@@ -105,7 +108,7 @@ def fetch_entries(
             params["idMember"] = member_id
 
         try:
-            r = requests.get(url, headers=_headers(), params=params, timeout=timeout)
+            r = requests.get(url, headers=_headers(username, password), params=params, timeout=timeout)
         except requests.RequestException as e:
             raise EvoApiError(f"Fallo de red contra EVO: {e}") from e
 
@@ -137,16 +140,22 @@ def fetch_entries(
     return [e for e in all_entries if e.get("entryAction") in actions]
 
 
-def fetch_branches() -> List[Dict]:
+def fetch_branches(
+    username: Optional[str] = None,
+    password: Optional[str] = None,
+) -> List[Dict]:
     """GET /api/v1/configuration  — lista de sedes con idBranch/name."""
     url = f"{EVO_BASE_URL}/api/v1/configuration"
-    r = requests.get(url, headers=_headers(), timeout=30)
+    r = requests.get(url, headers=_headers(username, password), timeout=30)
     if not r.ok:
         raise EvoApiError(f"EVO devolvió HTTP {r.status_code}: {r.text[:300]}")
     return r.json()
 
 
-def fetch_occupation() -> List[Dict]:
+def fetch_occupation(
+    username: Optional[str] = None,
+    password: Optional[str] = None,
+) -> List[Dict]:
     """
     GET /api/v1/configuration/occupation — ocupación real-time autoritativa de EVO.
     Devuelve lista de {idBranch, name, occupation, maxOccupation, qtyMinutesOut}.
@@ -154,7 +163,7 @@ def fetch_occupation() -> List[Dict]:
     de replay de eventos y matchea exactamente con lo que ve EVO en su panel.
     """
     url = f"{EVO_BASE_URL}/api/v1/configuration/occupation"
-    r = requests.get(url, headers=_headers(), timeout=30)
+    r = requests.get(url, headers=_headers(username, password), timeout=30)
     if not r.ok:
         raise EvoApiError(f"EVO devolvió HTTP {r.status_code}: {r.text[:300]}")
     return r.json()
@@ -222,6 +231,8 @@ def fetch_and_build_excel_bytes(
     hours: int = 24,
     sede_name: str = "Interlaken",
     branch_id: Optional[int] = None,
+    username: Optional[str] = None,
+    password: Optional[str] = None,
 ) -> bytes:
     """
     Conveniencia: trae las últimas N horas desde EVO y devuelve un XLSX
@@ -230,7 +241,7 @@ def fetch_and_build_excel_bytes(
     """
     end = datetime.now()
     start = end - timedelta(hours=hours)
-    entries = fetch_entries(start, end)
+    entries = fetch_entries(start, end, username=username, password=password)
     df = entries_to_dataframe(entries, sede_name=sede_name, branch_filter=branch_id)
     return dataframe_to_excel_bytes(df)
 
@@ -239,6 +250,8 @@ def fetch_and_build_excel_bytes_from_today(
     start_hour: int = 6,
     sede_name: str = "Interlaken",
     branch_id: Optional[int] = None,
+    username: Optional[str] = None,
+    password: Optional[str] = None,
 ) -> bytes:
     """
     Trae eventos desde `start_hour` del día actual hasta ahora.
@@ -252,6 +265,6 @@ def fetch_and_build_excel_bytes_from_today(
     start = now.replace(hour=start_hour, minute=0, second=0, microsecond=0)
     if now < start:
         start -= timedelta(days=1)
-    entries = fetch_entries(start, now)
+    entries = fetch_entries(start, now, username=username, password=password)
     df = entries_to_dataframe(entries, sede_name=sede_name, branch_filter=branch_id)
     return dataframe_to_excel_bytes(df)

@@ -16,6 +16,25 @@ app = Flask(__name__)
 
 CAPACITY_DEFAULT = 85
 
+# Configuración por sede. El DNS (EVO_USERNAME) es el mismo para todas (`neocl`);
+# lo que cambia es el token (password) que apunta a cada idBranch.
+# En Vercel: configurar EVO_USERNAME, EVO_PASSWORD (Plaza Vespucio) y
+# EVO_PASSWORD_INDEPENDENCIA por separado.
+SEDES_CONFIG = {
+    "plaza_vespucio": {
+        "name": "NEO Plaza Vespucio",
+        "branch_id": 1,
+        "capacity": 85,
+        "password_env": "EVO_PASSWORD",  # default
+    },
+    "independencia": {
+        "name": "NEO Independencia",
+        "branch_id": 2,
+        "capacity": 100,
+        "password_env": "EVO_PASSWORD_INDEPENDENCIA",
+    },
+}
+
 # Matriz v5 (May 2026) — umbrales más exigentes y precios +$300 en Media/MA/Alta.
 PRICE_TIERS = [
     {"label": "No hay data", "min": None, "max": None,  "price": None, "rank": -1},
@@ -248,39 +267,46 @@ def fetch_evo():
     """
     Trae data en vivo desde EVO y la procesa con la misma lógica que /upload.
     Body JSON: {
-      "start_hour": 6,        # hora de apertura del gym (default 6)
-      "capacity": 85,
-      "sede": "Plaza Vespucio",
-      "branch_id": null
+      "start_hour": 6,
+      "sede_key": "plaza_vespucio" | "independencia"   # default plaza_vespucio
     }
+    La capacidad y el branch_id se infieren de SEDES_CONFIG; el token EVO
+    se lee del env var correspondiente a esa sede.
     """
     body = request.get_json(silent=True) or {}
     start_hour = int(body.get("start_hour", 6))
-    capacity = int(body.get("capacity", CAPACITY_DEFAULT))
-    # Default basado en lo que el DNS actual expone. Para otras sedes,
-    # enviar "sede" en el body o configurar EVO_SEDE_NAME en env vars.
-    sede = body.get("sede") or os.environ.get("EVO_SEDE_NAME", "Plaza Vespucio")
-    branch_id = body.get("branch_id")
+    sede_key = body.get("sede_key", "plaza_vespucio")
 
-    if capacity <= 0:
-        return jsonify({"error": "La capacidad debe ser mayor a 0"}), 400
+    if sede_key not in SEDES_CONFIG:
+        return jsonify({"error": f"sede_key inválida: {sede_key}"}), 400
     if start_hour < 0 or start_hour > 23:
         return jsonify({"error": "start_hour debe estar entre 0 y 23"}), 400
 
+    cfg = SEDES_CONFIG[sede_key]
+    capacity = cfg["capacity"]
+    branch_id = cfg["branch_id"]
+    sede_name = cfg["name"]
+    username = os.environ.get("EVO_USERNAME")
+    password = os.environ.get(cfg["password_env"])
+    if not password:
+        return jsonify({
+            "error": f"Falta env var {cfg['password_env']} para la sede {sede_name}"
+        }), 500
+
     try:
-        # Trae eventos desde start_hour de hoy (default 6am)
         xlsx_bytes = evo_client.fetch_and_build_excel_bytes_from_today(
-            start_hour=start_hour, sede_name=sede, branch_id=branch_id
+            start_hour=start_hour,
+            sede_name=sede_name,
+            branch_id=branch_id,
+            username=username,
+            password=password,
         )
-        # Cuenta real-time autoritativa de EVO (no depende de replay de eventos)
-        occupation = evo_client.fetch_occupation()
+        occupation = evo_client.fetch_occupation(username=username, password=password)
     except evo_client.EvoAuthError as e:
         return jsonify({"error": f"Credenciales EVO inválidas: {e}"}), 401
     except evo_client.EvoApiError as e:
         return jsonify({"error": f"EVO no respondió: {e}"}), 502
 
-    # EVO ya filtra por DNS/token (un DNS = una sede), así que no necesitamos
-    # el filtro de sede_filter acá. Pasamos None para procesar toda la data.
     data, err = process_excel(
         xlsx_bytes, capacity,
         sede_filter=None,
@@ -289,17 +315,15 @@ def fetch_evo():
     if err:
         return jsonify({"error": err}), 400
     data["source"] = "evo-live"
+    data["sede_key"] = sede_key
+    data["sede_name"] = sede_name
 
     # Override del contador actual con la fuente de verdad de EVO.
-    # Busca la sede correcta: si hay branch_id, filtra; si no, usa la primera.
     if occupation:
-        if branch_id is not None:
-            branch_occ = next(
-                (o for o in occupation if o.get("idBranch") == branch_id),
-                occupation[0],
-            )
-        else:
-            branch_occ = occupation[0]
+        branch_occ = next(
+            (o for o in occupation if o.get("idBranch") == branch_id),
+            occupation[0],
+        )
         data["live_occupation"] = branch_occ.get("occupation")
         data["live_max_occupation"] = branch_occ.get("maxOccupation")
 
