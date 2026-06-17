@@ -15,6 +15,16 @@ Variables de entorno requeridas:
 import os
 import base64
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+
+# Timezone de NEO Chile. Importante: el server de Vercel corre en UTC, así que
+# chile_now() sin tz devuelve UTC → la live card mostraría 17:00 cuando en
+# Chile son las 13:00. Centralizamos acá para no olvidar.
+CHILE_TZ = ZoneInfo("America/Santiago")
+
+def chile_now() -> datetime:
+    """chile_now() en Chile (independiente del timezone del server)."""
+    return datetime.now(CHILE_TZ).replace(tzinfo=None)
 from typing import List, Dict, Optional
 
 import requests
@@ -243,7 +253,7 @@ def fetch_and_build_excel_bytes(
     con el mismo shape que un export manual. El Flask lo pasa directo a
     process_excel().
     """
-    end = datetime.now()
+    end = chile_now()
     start = end - timedelta(hours=hours)
     entries = fetch_entries(start, end, username=username, password=password)
     df = entries_to_dataframe(entries, sede_name=sede_name, branch_filter=branch_id)
@@ -265,7 +275,7 @@ def fetch_and_build_excel_bytes_from_today(
     Si la hora actual es anterior a start_hour (p.ej. 3am), usa start_hour
     del día anterior.
     """
-    now = datetime.now()
+    now = chile_now()
     start = now.replace(hour=start_hour, minute=0, second=0, microsecond=0)
     if now < start:
         start -= timedelta(days=1)

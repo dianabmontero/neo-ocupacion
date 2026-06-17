@@ -75,8 +75,7 @@ def process_excel(file_bytes, capacity, sede_filter="Interlaken", display_start_
     # Devolvemos un esqueleto con todas las horas en cero — el live card va a
     # usar el override de /configuration/occupation de todos modos.
     if df.empty:
-        from datetime import datetime as _dt
-        now = _dt.now()
+        now = evo_client.chile_now()
         min_hour = display_start_hour if display_start_hour is not None else 6
         hourly_empty = []
         for h in range(min_hour, max(min_hour + 1, now.hour + 2)):
