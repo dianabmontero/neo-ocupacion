@@ -191,9 +191,12 @@ def process_excel(file_bytes, capacity, sede_filter="Interlaken", display_start_
             "checkouts_in_hour": checkouts,
         })
 
-    day_of_week = df['_dt'].dt.dayofweek.iloc[0]  # 0=Mon … 6=Sun
+    # current_hour/minute deben ser la hora REAL de Chile (no la del último
+    # evento). Si nadie entró/salió en los últimos minutos, la card mostraría
+    # una hora vieja y la zona de transición se calcularía mal.
+    now_cl = evo_client.chile_now()
+    day_of_week = now_cl.weekday()  # 0=Mon … 6=Sun
     last_event = df['_dt'].max()
-    current_minute = int(last_event.minute)
 
     return {
         "date": date_str,
@@ -201,8 +204,10 @@ def process_excel(file_bytes, capacity, sede_filter="Interlaken", display_start_
         "capacity": capacity,
         "total_events": len(df),
         "ignored_events": ignored,
-        "current_minute": current_minute,
-        "current_hour": int(last_event.hour),
+        "current_minute": int(now_cl.minute),
+        "current_hour": int(now_cl.hour),
+        "last_event_hour": int(last_event.hour),
+        "last_event_minute": int(last_event.minute),
         "sede": (df["Sede de origen"].dropna().iloc[0]
                  if "Sede de origen" in df.columns and not df["Sede de origen"].dropna().empty
                  else "NEO"),
