@@ -8,3 +8,9 @@ venv/
 .claude/
 *.xlsx
 *.xls
+
+# Bot (Node)
+node_modules/
+dist/
+*.tsbuildinfo
+*.log

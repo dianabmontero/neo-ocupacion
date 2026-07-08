@@ -1,0 +1,27 @@
+{
+  "name": "neo-support-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch scripts/dev-server.ts",
+    "start": "tsx scripts/dev-server.ts",
+    "ingest": "tsx ingest/ingest.ts",
+    "eval": "tsx scripts/run-eval.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.65.0",
+    "@supabase/supabase-js": "^2.45.0",
+    "dotenv": "^16.4.5",
+    "gray-matter": "^4.0.3",
+    "hono": "^4.6.0",
+    "@hono/node-server": "^1.13.0",
+    "yaml": "^2.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}
