@@ -1560,5 +1560,438 @@
 
     function renderFlowCharts(data) { /* charts removed */ }
   </script>
+
+  <!-- ═════════════════════════════════════════════════════════════════ -->
+  <!-- NEO Support Bot — widget flotante                                  -->
+  <!-- Llama a /api/ask (mismo origen). Toggle con el botón bottom-right. -->
+  <!-- Todos los IDs/clases van con prefijo neo-bot- para no colisionar.  -->
+  <!-- ═════════════════════════════════════════════════════════════════ -->
+
+  <style>
+    #neo-bot-fab {
+      position: fixed; bottom: 24px; right: 24px;
+      width: 60px; height: 60px; border-radius: 50%;
+      background: #5b46f7; color: white; border: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      cursor: pointer; font-size: 28px;
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9998; transition: transform 0.15s;
+    }
+    #neo-bot-fab:hover { transform: scale(1.06); }
+    #neo-bot-panel {
+      position: fixed; bottom: 100px; right: 24px;
+      width: 380px; max-width: calc(100vw - 48px);
+      height: 520px; max-height: calc(100vh - 140px);
+      background: white; border-radius: 16px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.22);
+      display: none; flex-direction: column;
+      overflow: hidden; z-index: 9999;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    #neo-bot-panel.neo-bot-open { display: flex; }
+    #neo-bot-header {
+      padding: 14px 16px; background: #5b46f7; color: white;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    #neo-bot-header-title { font-weight: 600; font-size: 15px; }
+    #neo-bot-close {
+      background: transparent; color: white; border: none;
+      cursor: pointer; font-size: 22px; line-height: 1; padding: 0 4px;
+    }
+    #neo-bot-messages {
+      flex: 1; overflow-y: auto; padding: 14px;
+      display: flex; flex-direction: column; gap: 10px;
+      background: #f8f8fa;
+    }
+    .neo-bot-msg {
+      max-width: 85%; padding: 9px 13px; border-radius: 14px;
+      font-size: 14px; line-height: 1.4; white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .neo-bot-msg-user {
+      background: #5b46f7; color: white; align-self: flex-end;
+      border-bottom-right-radius: 4px;
+    }
+    .neo-bot-msg-bot {
+      background: white; color: #222; align-self: flex-start;
+      border-bottom-left-radius: 4px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+    }
+    .neo-bot-msg-source {
+      font-size: 11px; color: #888; margin-top: 6px;
+    }
+    .neo-bot-doc-link {
+      color: #5b46f7; text-decoration: none;
+    }
+    .neo-bot-doc-link:hover {
+      text-decoration: underline;
+    }
+    .neo-bot-handoff-actions {
+      display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;
+    }
+    .neo-bot-slack-btn {
+      display: inline-block; padding: 7px 12px;
+      background: #611f69; color: white;
+      text-decoration: none; border-radius: 6px; font-size: 12px;
+    }
+    .neo-bot-slack-btn:hover { background: #4A154B; }
+    .neo-bot-guide-btn {
+      display: inline-block; padding: 7px 12px;
+      background: white; color: #333;
+      border: 1px solid #ccc; text-decoration: none;
+      border-radius: 6px; font-size: 12px;
+    }
+    .neo-bot-guide-btn:hover { border-color: #5b46f7; color: #5b46f7; }
+    .neo-bot-msg-handoff {
+      background: #fff9e6 !important; border-left: 3px solid #f5a623;
+      align-self: stretch; max-width: none;
+    }
+    .neo-bot-handoff-btn {
+      display: inline-block;
+      padding: 7px 12px; background: #5b46f7; color: white;
+      border: none; border-radius: 6px; cursor: pointer; font-size: 12px;
+    }
+    .neo-bot-msg-loading { color: #888; font-style: italic; }
+    .neo-bot-presets { align-self: stretch; }
+    .neo-bot-presets-heading {
+      font-size: 11px; color: #888; font-weight: 600;
+      margin: 14px 0 4px; text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .neo-bot-presets-heading:first-child { margin-top: 0; }
+    .neo-bot-preset-btn {
+      display: block; width: 100%;
+      padding: 9px 12px; margin-bottom: 4px;
+      background: white; border: 1px solid #e5e5eb;
+      border-radius: 10px; color: #333;
+      font-size: 13px; text-align: left; cursor: pointer;
+      font-family: inherit; line-height: 1.35;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .neo-bot-preset-btn:hover {
+      background: #f5f5fa; border-color: #5b46f7;
+    }
+    .neo-bot-cat-btn {
+      display: flex; justify-content: space-between; align-items: center;
+      width: 100%; padding: 11px 14px; margin-bottom: 6px;
+      background: white; border: 1px solid #e5e5eb; border-radius: 10px;
+      color: #333; font-size: 14px; font-weight: 500;
+      text-align: left; cursor: pointer; font-family: inherit;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .neo-bot-cat-btn::after {
+      content: '›'; color: #888; font-size: 20px;
+      margin-left: 8px; line-height: 1;
+    }
+    .neo-bot-cat-btn:hover {
+      background: #f5f5fa; border-color: #5b46f7;
+    }
+    .neo-bot-back-btn {
+      background: transparent; border: none; color: #5b46f7;
+      font-size: 12px; padding: 2px 0 10px;
+      cursor: pointer; font-family: inherit; text-align: left;
+    }
+    .neo-bot-back-btn:hover { text-decoration: underline; }
+    .neo-bot-back-inline {
+      margin-top: 10px; padding-top: 8px;
+      border-top: 1px solid #eee;
+      font-size: 12px; color: #5b46f7; cursor: pointer;
+    }
+    .neo-bot-back-inline:hover { text-decoration: underline; }
+    .neo-bot-msg strong { font-weight: 600; }
+    .neo-bot-msg em { font-style: italic; }
+    #neo-bot-input-form {
+      display: flex; gap: 8px; padding: 12px;
+      border-top: 1px solid #eee; background: white;
+    }
+    #neo-bot-input {
+      flex: 1; padding: 9px 13px; border: 1px solid #ddd;
+      border-radius: 20px; font-size: 14px; outline: none;
+      font-family: inherit;
+    }
+    #neo-bot-input:focus { border-color: #5b46f7; }
+    #neo-bot-send {
+      padding: 9px 16px; background: #5b46f7; color: white;
+      border: none; border-radius: 20px; cursor: pointer; font-size: 14px;
+    }
+    #neo-bot-send:disabled { opacity: 0.5; cursor: not-allowed; }
+    @media (max-width: 480px) {
+      #neo-bot-panel {
+        right: 12px; bottom: 90px;
+        width: calc(100vw - 24px); height: calc(100vh - 110px);
+      }
+    }
+  </style>
+
+  <button id="neo-bot-fab" type="button" title="Ayuda">💬</button>
+
+  <div id="neo-bot-panel" role="dialog" aria-label="Chat de soporte NEO">
+    <div id="neo-bot-header">
+      <span id="neo-bot-header-title">Soporte NEO</span>
+      <button id="neo-bot-close" type="button" title="Cerrar" aria-label="Cerrar">&times;</button>
+    </div>
+    <div id="neo-bot-messages"></div>
+    <form id="neo-bot-input-form" autocomplete="off">
+      <input id="neo-bot-input" type="text" placeholder="Escribí tu pregunta..." autocomplete="off" />
+      <button id="neo-bot-send" type="submit">Enviar</button>
+    </form>
+  </div>
+
+  <script>
+    (function() {
+      // Endpoint del bot. Mismo origen por default. Para test local contra
+      // otro server: cambiar aquí a la URL absoluta (ej. http://localhost:3000/api/ask).
+      var BOT_ENDPOINT = '/api/ask';
+
+      var fab = document.getElementById('neo-bot-fab');
+      var panel = document.getElementById('neo-bot-panel');
+      var closeBtn = document.getElementById('neo-bot-close');
+      var messages = document.getElementById('neo-bot-messages');
+      var form = document.getElementById('neo-bot-input-form');
+      var input = document.getElementById('neo-bot-input');
+      var sendBtn = document.getElementById('neo-bot-send');
+      var welcomeShown = false;
+
+      // Presets curados — mismas 21 preguntas del chat CLI (scripts/chat.ts).
+      var PRESETS = [
+        { section: '💰 Precios', question: '¿Cómo funciona el precio del pase?' },
+        { section: '💰 Precios', question: '¿Una clase puede costar menos que el pase?' },
+        { section: '🔐 Accesos y QR', question: "Al comprar sale 'tiempo agotado', ¿qué hago?" },
+        { section: '🔐 Accesos y QR', question: 'Tengo un profe nuevo, ¿cómo habilito su QR?' },
+        { section: '👥 Ocupación y beneficios', question: 'La ocupación de la app no coincide con lo que veo en la sede' },
+        { section: '👥 Ocupación y beneficios', question: '¿Cuántos check-ins necesita el usuario para el beneficio de mes gratis?' },
+        { section: '💳 Tarjetas y app', question: "No puedo registrar la tarjeta, dice 'servicio no disponible'" },
+        { section: '💳 Tarjetas y app', question: 'La app pide actualizar pero ya está actualizada' },
+        { section: '⚙️ Configuración', question: 'Aparece una sala en la app que no existe, ¿cómo la saco?' },
+        { section: '⚙️ Configuración', question: '¿Dónde defino el precio de un phonebooth?' },
+        { section: '⚙️ Configuración', question: '¿Cómo cambio el horario de una sede?' },
+        { section: '⚙️ Configuración', question: '¿Un usuario puede cambiar su reserva por otra clase?' },
+        { section: '⚙️ Configuración', question: 'Programé un cierre y le llegaron mails a gente de un día que no cerré' },
+        { section: '🖥 Admin panel', question: '¿Qué diferencia hay entre modo Activa, Próxima a abrir y Marcha blanca?' },
+        { section: '🖥 Admin panel', question: '¿Puedo cambiar una sede a Próxima a abrir después de publicarla?' },
+        { section: '🖥 Admin panel', question: '¿Qué es una sede promocional? ¿Cuándo la uso?' },
+        { section: '🖥 Admin panel', question: '¿Cuándo tengo que eliminar una sede promocional?' },
+        { section: '🖥 Admin panel', question: 'Despubliqué una sede sin querer, ¿perdí los datos?' },
+        { section: '🖥 Admin panel', question: '¿Por qué en Marcha blanca todo sale a $0?' },
+        { section: '🖥 Admin panel', question: 'Los números de Métricas no coinciden con EVO' },
+        { section: '🖥 Admin panel', question: '¿Puedo editar el precio dinámico desde el Admin?' }
+      ];
+
+      // Container mutable — cambia entre "lista de categorías" y "preguntas de X".
+      var presetsBox = null;
+
+      function getSections() {
+        var sections = [];
+        var seen = {};
+        PRESETS.forEach(function(p) {
+          if (!seen[p.section]) { seen[p.section] = true; sections.push(p.section); }
+        });
+        return sections;
+      }
+
+      function renderCategories() {
+        presetsBox.innerHTML = '';
+        var title = document.createElement('div');
+        title.className = 'neo-bot-presets-heading';
+        title.textContent = 'Elegí un tema';
+        presetsBox.appendChild(title);
+        getSections().forEach(function(section) {
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'neo-bot-cat-btn';
+          btn.textContent = section;
+          btn.addEventListener('click', function() { renderQuestions(section); });
+          presetsBox.appendChild(btn);
+        });
+      }
+
+      function renderQuestions(section) {
+        presetsBox.innerHTML = '';
+        var back = document.createElement('button');
+        back.type = 'button';
+        back.className = 'neo-bot-back-btn';
+        back.textContent = '← Volver a temas';
+        back.addEventListener('click', renderCategories);
+        presetsBox.appendChild(back);
+        var heading = document.createElement('div');
+        heading.className = 'neo-bot-presets-heading';
+        heading.textContent = section;
+        presetsBox.appendChild(heading);
+        PRESETS.filter(function(p) { return p.section === section; }).forEach(function(p) {
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'neo-bot-preset-btn';
+          btn.textContent = p.question;
+          btn.addEventListener('click', function() { sendQuestion(p.question); });
+          presetsBox.appendChild(btn);
+        });
+      }
+
+      function renderPresets() {
+        presetsBox = document.createElement('div');
+        presetsBox.className = 'neo-bot-presets';
+        messages.appendChild(presetsBox);
+        renderCategories();
+      }
+
+      fab.addEventListener('click', function() {
+        panel.classList.add('neo-bot-open');
+        if (!welcomeShown) {
+          addMessage('bot', 'Hola 👋 Elegí un tema o escribí tu pregunta.');
+          renderPresets();
+          welcomeShown = true;
+          messages.scrollTop = 0;
+        }
+        setTimeout(function() { input.focus(); }, 100);
+      });
+      closeBtn.addEventListener('click', function() {
+        panel.classList.remove('neo-bot-open');
+      });
+
+      // Formateo mínimo de markdown para las respuestas del bot:
+      //   **texto** → <strong>, *texto* → <em>, "- " al inicio de línea → "• ".
+      // Se escapan < > & primero para evitar XSS.
+      function formatMarkdown(text) {
+        if (!text) return '';
+        var s = String(text)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+        s = s.replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>');
+        s = s.replace(/(^|[^\w*])\*([^*\n]+?)\*(?!\w)/g, '$1<em>$2</em>');
+        s = s.replace(/(^|\n)- /g, '$1• ');
+        return s;
+      }
+
+      function addMessage(type, text, opts) {
+        opts = opts || {};
+        var div = document.createElement('div');
+        div.className = 'neo-bot-msg neo-bot-msg-' + type;
+
+        if (opts.handoff) {
+          div.classList.add('neo-bot-msg-handoff');
+          var label = document.createElement('div');
+          label.innerHTML = formatMarkdown(text);
+          div.appendChild(label);
+          var actions = document.createElement('div');
+          actions.className = 'neo-bot-handoff-actions';
+          var btn = document.createElement('button');
+          btn.className = 'neo-bot-handoff-btn';
+          btn.type = 'button';
+          btn.textContent = '📋 Copiar pregunta';
+          btn.addEventListener('click', function() {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(opts.question || '').then(function() {
+                btn.textContent = '✓ Copiado';
+                setTimeout(function() { btn.textContent = '📋 Copiar pregunta'; }, 1500);
+              });
+            }
+          });
+          var guideBtn = document.createElement('a');
+          guideBtn.className = 'neo-bot-guide-btn';
+          guideBtn.href = 'https://stg.admin.theneoplex.com/instructivo-admin-neo.pdf';
+          guideBtn.target = '_blank';
+          guideBtn.rel = 'noopener noreferrer';
+          guideBtn.textContent = '📄 Ver guía';
+          actions.appendChild(guideBtn);
+          actions.appendChild(btn);
+          var slackBtn = document.createElement('a');
+          slackBtn.className = 'neo-bot-slack-btn';
+          slackBtn.href = 'https://neo-wcp3024.slack.com/archives/C0AFG54PC23';
+          slackBtn.target = '_blank';
+          slackBtn.rel = 'noopener noreferrer';
+          slackBtn.textContent = '💬 Ir a Slack';
+          actions.appendChild(slackBtn);
+          div.appendChild(actions);
+        } else if (opts.source) {
+          var t = document.createElement('div');
+          t.innerHTML = formatMarkdown(text);
+          div.appendChild(t);
+          var src = document.createElement('div');
+          src.className = 'neo-bot-msg-source';
+          var docLink = document.createElement('a');
+          docLink.href = 'https://stg.admin.theneoplex.com/instructivo-admin-neo.pdf';
+          docLink.target = '_blank';
+          docLink.rel = 'noopener noreferrer';
+          docLink.className = 'neo-bot-doc-link';
+          docLink.textContent = '📄 Guía completa';
+          src.appendChild(docLink);
+          div.appendChild(src);
+        } else {
+          div.innerHTML = formatMarkdown(text);
+          if (opts.showGuide) {
+            var guideLine = document.createElement('div');
+            guideLine.className = 'neo-bot-msg-source';
+            var errorDocLink = document.createElement('a');
+            errorDocLink.href = 'https://stg.admin.theneoplex.com/instructivo-admin-neo.pdf';
+            errorDocLink.target = '_blank';
+            errorDocLink.rel = 'noopener noreferrer';
+            errorDocLink.className = 'neo-bot-doc-link';
+            errorDocLink.textContent = '📄 Guía completa';
+            guideLine.appendChild(errorDocLink);
+            div.appendChild(guideLine);
+          }
+        }
+
+        if (opts.backToTopics) {
+          var backLink = document.createElement('div');
+          backLink.className = 'neo-bot-back-inline';
+          backLink.textContent = '← Volver a temas';
+          backLink.addEventListener('click', function() {
+            renderCategories();
+            messages.scrollTop = 0;
+          });
+          div.appendChild(backLink);
+        }
+
+        messages.appendChild(div);
+        messages.scrollTop = messages.scrollHeight;
+        return div;
+      }
+
+      function sendQuestion(question) {
+        addMessage('user', question);
+        var loading = addMessage('bot', 'Pensando…');
+        loading.classList.add('neo-bot-msg-loading');
+        sendBtn.disabled = true;
+
+        fetch(BOT_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question: question })
+        }).then(function(res) {
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          return res.json();
+        }).then(function(data) {
+          loading.remove();
+          if (data.needs_handoff) {
+            addMessage('bot', 'No tengo esta respuesta en el corpus del bot. Consultá la guía completa o dejale la pregunta al equipo por Slack:', {
+              handoff: true, question: question, backToTopics: true
+            });
+          } else {
+            addMessage('bot', data.answer, { source: data.cited_faq_id, backToTopics: true });
+          }
+        }).catch(function(err) {
+          loading.remove();
+          addMessage('bot', 'No pude contactar al bot. Reintentá en un momento o consultá la guía mientras tanto.', {
+            showGuide: true, backToTopics: true
+          });
+          console.error('[neo-bot]', err);
+        }).finally(function() {
+          sendBtn.disabled = false;
+          input.focus();
+        });
+      }
+
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        var q = input.value.trim();
+        if (!q) return;
+        input.value = '';
+        sendQuestion(q);
+      });
+    })();
+  </script>
+  <!-- ═════════════════════════════════════════════════════════════════ -->
 </body>
 </html>
